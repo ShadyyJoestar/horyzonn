@@ -8,7 +8,6 @@ import {
   Target,
   BookOpen,
   BarChart3,
-  Settings,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,10 +24,10 @@ interface Profile {
 
 const studentNav = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "My Profile", href: "/profile", icon: User },
-  { name: "Career Assessment", href: "/assessment", icon: Target },
-  { name: "Academic Path", href: "/academic", icon: BookOpen },
-  { name: "Progress", href: "/progress", icon: BarChart3 },
+  { name: "My Profile", href: "/dashboard/profile", icon: User },
+  { name: "Career Assessment", href: "/dashboard/assessment", icon: Target },
+  { name: "Academic Path", href: "/dashboard/academic", icon: BookOpen },
+  { name: "Progress", href: "/dashboard/progress", icon: BarChart3 },
 ];
 
 export function Sidebar({ profile }: { profile: Profile | null }) {
@@ -44,7 +43,6 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card">
-      {/* Logo */}
       <div className="flex h-16 items-center gap-2 px-6 border-b border-border">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background font-bold text-sm">
           H
@@ -52,10 +50,12 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
         <span className="text-lg font-semibold tracking-tight">Horyzon</span>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 p-4 space-y-1">
         {studentNav.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(item.href));
+
           return (
             <Link
               key={item.name}
@@ -74,7 +74,6 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
         })}
       </nav>
 
-      {/* User + Logout */}
       <div className="border-t border-border p-4 space-y-3">
         <div className="px-3">
           <p className="text-sm font-medium truncate">

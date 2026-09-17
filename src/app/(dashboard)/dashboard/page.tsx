@@ -29,12 +29,11 @@ export default async function DashboardPage() {
 
   const focus = profile?.primary_focus || "both";
 
-  // Sementara masih dummy
+  // Sementara masih dummy — nanti diganti hitungan real
   const profileCompleteness = 15;
 
   return (
     <div className="space-y-8 max-w-5xl">
-      {/* Header */}
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground mt-1">
@@ -42,7 +41,6 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Profile Completeness */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -56,7 +54,11 @@ export default async function DashboardPage() {
         <CardContent>
           <Progress value={profileCompleteness} className="h-2" />
           <div className="mt-4">
-            <Button size="sm" render={<Link href="/profile" />} nativeButton={false}>
+            <Button
+              size="sm"
+              render={<Link href="/dashboard/profile" />}
+              nativeButton={false}
+            >
               Complete Profile
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -64,7 +66,6 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Quick Actions berdasarkan focus */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(focus === "career" || focus === "both") && (
           <Card className="hover:border-foreground/30 transition-colors">
@@ -146,7 +147,6 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Current Focus Badge */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Current focus:</span>
         <Badge variant="secondary" className="capitalize">
