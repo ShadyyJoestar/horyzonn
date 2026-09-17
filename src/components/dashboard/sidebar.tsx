@@ -5,43 +5,33 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   User,
-  Target,
-  BookOpen,
+  Briefcase,
+  GraduationCap,
   BarChart3,
   Activity,
-  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { SignOutButton } from "@/components/dashboard/sign-out-button";
 
 interface Profile {
   id: string;
   full_name: string | null;
   email: string | null;
   role: string;
-  primary_focus?: string | null;
+  primary_focus: string | null;
 }
 
 const studentNav = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "My Profile", href: "/dashboard/profile", icon: User },
-  { name: "Academic Paths", href: "/dashboard/academic", icon: BookOpen },
-  { name: "Careers", href: "/dashboard/careers", icon: Target },
-  { name: "Assessments", href: "/dashboard/assessment", icon: BarChart3 },
+  { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Profile", href: "/dashboard/profile", icon: User },
+  { name: "Careers", href: "/dashboard/careers", icon: Briefcase },
+  { name: "Academic", href: "/dashboard/academic", icon: GraduationCap },
+  { name: "Assessment", href: "/dashboard/assessment", icon: BarChart3 },
   { name: "Progress", href: "/dashboard/progress", icon: Activity },
 ];
 
 export function Sidebar({ profile }: { profile: Profile | null }) {
   const pathname = usePathname();
-  const router = useRouter();
-
-  async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card">
@@ -89,13 +79,7 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
           </p>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </button>
+        <SignOutButton />
       </div>
     </aside>
   );

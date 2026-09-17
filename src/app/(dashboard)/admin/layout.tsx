@@ -1,5 +1,5 @@
 // src/app/(dashboard)/admin/layout.tsx
-// Guard role admin sekarang tinggal di sini, bukan di layout grup (dashboard).
+// Guard role admin di sini, bukan di layout grup (dashboard).
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
@@ -33,7 +33,7 @@ export default async function AdminLayout({
 
   const role = profile?.role ?? "student";
 
-  // Non-admin diarahkan ke dashboard student, bukan ke landing page.
+  // Non-admin diarahkan ke dashboard student
   if (role !== "admin") {
     redirect("/dashboard");
   }
@@ -92,6 +92,9 @@ export default async function AdminLayout({
             <p className="text-sm text-muted-foreground">
               {profile?.full_name || profile?.email || user.email}
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <SignOutButton variant="icon" />
           </div>
         </header>
 
