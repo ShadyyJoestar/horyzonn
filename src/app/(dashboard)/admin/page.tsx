@@ -1,10 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Briefcase, Brain, Users, FileText } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdminOverviewPage() {
   const supabase = await createClient();
+  // FIX: "profiles" tunduk RLS per-user, jadi hitungnya harus lewat
+  // service-role client kalau mau lihat semua user, bukan cuma diri sendiri.
+  const supabaseAdmin = createAdminClient();
 
   const [
     { count: careersCount },
@@ -14,7 +18,7 @@ export default async function AdminOverviewPage() {
   ] = await Promise.all([
     supabase.from("careers").select("*", { count: "exact", head: true }),
     supabase.from("competencies").select("*", { count: "exact", head: true }),
-    supabase.from("profiles").select("*", { count: "exact", head: true }),
+    supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("assessments").select("*", { count: "exact", head: true }),
   ]);
 

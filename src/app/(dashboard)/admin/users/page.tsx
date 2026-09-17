@@ -1,9 +1,14 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default async function AdminUsersPage() {
-  const supabase = await createClient();
+  // FIX: pakai client service-role, bukan client biasa.
+  // Client biasa tunduk ke RLS "auth.uid() = id" di tabel profiles, jadi
+  // admin cuma bisa lihat barisnya sendiri walaupun query-nya minta semua.
+  // Halaman ini aman pakai service-role karena sudah lewat guard
+  // "role === admin" di src/app/(dashboard)/admin/layout.tsx.
+  const supabase = createAdminClient();
 
   const { data: users, error } = await supabase
     .from("profiles")
