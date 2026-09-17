@@ -51,10 +51,10 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button variant="ghost" render={<Link href="/login" />} nativeButton={false}>
+            <Button variant="ghost" render={<Link href="/login" prefetch={false} />} nativeButton={false}>
               Sign in
             </Button>
-            <Button render={<Link href="/register" />} nativeButton={false}>
+            <Button render={<Link href="/register" prefetch={false} />} nativeButton={false}>
               Get started
             </Button>
           </div>
@@ -84,7 +84,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 className="h-12 px-8 text-base"
-                render={<Link href="/register" />}
+                render={<Link href="/register" prefetch={false} />}
                 nativeButton={false}
               >
                 Build My Profile
@@ -95,7 +95,7 @@ export default function LandingPage() {
                 size="lg"
                 variant="outline"
                 className="h-12 px-8 text-base"
-                render={<Link href="/careers" />}
+                render={<Link href="/dashboard/careers" prefetch={false} />}
                 nativeButton={false}
               >
                 Explore Careers
@@ -221,7 +221,7 @@ export default function LandingPage() {
             <Button
               size="lg"
               className="h-12 px-8 text-base"
-              render={<Link href="/register" />}
+              render={<Link href="/register" prefetch={false} />}
               nativeButton={false}
             >
               Build My Profile
