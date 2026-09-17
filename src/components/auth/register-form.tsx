@@ -24,6 +24,7 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // ====================== INI HANDLE SUBMIT YANG BARU ======================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -31,8 +32,7 @@ export function RegisterForm() {
 
     const supabase = createClient();
 
-    // 1. Sign up
-    const { data, error: signUpError } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -48,28 +48,11 @@ export function RegisterForm() {
       return;
     }
 
-    // 2. Insert ke profiles (role default = student)
-    if (data.user) {
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: data.user.id,
-        email: email,
-        full_name: fullName,
-        role: "student",
-      });
-
-      if (profileError) {
-        // Kalau sudah ada (misal trigger), abaikan
-        if (!profileError.message.includes("duplicate")) {
-          setError(profileError.message);
-          setLoading(false);
-          return;
-        }
-      }
-    }
-
+    // Profile otomatis dibuat oleh trigger di database
     router.push("/dashboard");
     router.refresh();
   }
+  // ========================================================================
 
   return (
     <Card className="w-full max-w-md">
