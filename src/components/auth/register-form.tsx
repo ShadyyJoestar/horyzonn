@@ -16,15 +16,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+type FocusOption = "academic" | "career" | "both";
+
 export function RegisterForm() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [primaryFocus, setPrimaryFocus] = useState<FocusOption>("both");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // ====================== INI HANDLE SUBMIT YANG BARU ======================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -38,6 +40,7 @@ export function RegisterForm() {
       options: {
         data: {
           full_name: fullName,
+          primary_focus: primaryFocus,
         },
       },
     });
@@ -48,18 +51,16 @@ export function RegisterForm() {
       return;
     }
 
-    // Profile otomatis dibuat oleh trigger di database
     router.push("/dashboard");
     router.refresh();
   }
-  // ========================================================================
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-semibold">Create account</CardTitle>
         <CardDescription>
-          Build your profile and start exploring career readiness
+          Build your profile and start exploring your next horizon
         </CardDescription>
       </CardHeader>
 
@@ -109,6 +110,66 @@ export function RegisterForm() {
               minLength={6}
               disabled={loading}
             />
+          </div>
+
+          {/* Primary Focus */}
+          <div className="space-y-3">
+            <Label>What are you looking for?</Label>
+            <div className="grid gap-2">
+              <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 has-[:checked]:border-foreground has-[:checked]:bg-muted/30">
+                <input
+                  type="radio"
+                  name="focus"
+                  value="academic"
+                  checked={primaryFocus === "academic"}
+                  onChange={() => setPrimaryFocus("academic")}
+                  className="mt-1"
+                  disabled={loading}
+                />
+                <div>
+                  <p className="font-medium text-sm">Academic Path</p>
+                  <p className="text-xs text-muted-foreground">
+                    Looking for college major / education path
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 has-[:checked]:border-foreground has-[:checked]:bg-muted/30">
+                <input
+                  type="radio"
+                  name="focus"
+                  value="career"
+                  checked={primaryFocus === "career"}
+                  onChange={() => setPrimaryFocus("career")}
+                  className="mt-1"
+                  disabled={loading}
+                />
+                <div>
+                  <p className="font-medium text-sm">Career Path</p>
+                  <p className="text-xs text-muted-foreground">
+                    Looking for career readiness & skill gaps
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 has-[:checked]:border-foreground has-[:checked]:bg-muted/30">
+                <input
+                  type="radio"
+                  name="focus"
+                  value="both"
+                  checked={primaryFocus === "both"}
+                  onChange={() => setPrimaryFocus("both")}
+                  className="mt-1"
+                  disabled={loading}
+                />
+                <div>
+                  <p className="font-medium text-sm">Both</p>
+                  <p className="text-xs text-muted-foreground">
+                    Explore education paths and career readiness
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
         </CardContent>
 
