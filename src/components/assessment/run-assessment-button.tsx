@@ -1,18 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { runAssessment } from "@/lib/actions/assesments";
-
-function isNextRedirectError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "digest" in error &&
-    typeof (error as { digest?: unknown }).digest === "string" &&
-    String((error as { digest: string }).digest).startsWith("NEXT_REDIRECT")
-  );
-}
 
 export function RunAssessmentButton({
   careerId,
@@ -22,25 +12,29 @@ export function RunAssessmentButton({
   label?: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
-    <Button
-      disabled={pending}
-      onClick={() => {
-        startTransition(async () => {
-          try {
-            await runAssessment(careerId);
-          } catch (e) {
-            // Server Action redirect() throws NEXT_REDIRECT — must rethrow
-            if (isNextRedirectError(e)) throw e;
-
-            console.error(e);
-            alert(e instanceof Error ? e.message : "Failed to run assessment");
-          }
-        });
-      }}
-    >
-      {pending ? "Running analysis..." : label}
-    </Button>
+    <div className="space-y-2">
+      <Button
+        disabled={pending || !careerId}
+        onClick={() => {
+          setError(null);
+          startTransition(async () => {
+            // Jangan wrap redirect dengan logic yang menelan error
+            const result = await runAssessment(careerId);
+            // Kalau action return error object (lihat bawah)
+            if (result && "error" in result && result.error) {
+              setError(result.error);
+            }
+          });
+        }}
+      >
+        {pending ? "Running analysis..." : label}
+      </Button>
+      {error && (
+        <p className="text-sm text-destructive whitespace-pre-wrap">{error}</p>
+      )}
+    </div>
   );
 }
