@@ -29,8 +29,8 @@ export default async function DashboardPage() {
 
   const focus = profile?.primary_focus || "both";
 
-  // Sementara masih dummy, nanti diganti data real
-  const profileCompleteness = 15; // contoh
+  // Sementara masih dummy
+  const profileCompleteness = 15;
 
   return (
     <div className="space-y-8 max-w-5xl">
@@ -56,11 +56,9 @@ export default async function DashboardPage() {
         <CardContent>
           <Progress value={profileCompleteness} className="h-2" />
           <div className="mt-4">
-            <Button asChild size="sm">
-              <Link href="/profile">
-                Complete Profile
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
+            <Button size="sm" render={<Link href="/profile" />} nativeButton={false}>
+              Complete Profile
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </CardContent>
@@ -82,8 +80,14 @@ export default async function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <Button asChild variant="outline" size="sm" className="w-full">
-                <Link href="/assessment">Start Assessment</Link>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                render={<Link href="/assessment" />}
+                nativeButton={false}
+              >
+                Start Assessment
               </Button>
             </CardContent>
           </Card>
@@ -103,8 +107,14 @@ export default async function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <Button asChild variant="outline" size="sm" className="w-full">
-                <Link href="/academic">Explore Paths</Link>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                render={<Link href="/academic" />}
+                nativeButton={false}
+              >
+                Explore Paths
               </Button>
             </CardContent>
           </Card>
@@ -123,8 +133,14 @@ export default async function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Button asChild variant="outline" size="sm" className="w-full">
-              <Link href="/profile">Manage Profile</Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              render={<Link href="/profile" />}
+              nativeButton={false}
+            >
+              Manage Profile
             </Button>
           </CardContent>
         </Card>
