@@ -83,17 +83,16 @@ function generateExplanation(
   let summary = "";
   switch (classification) {
     case "CAREER_READY":
-      summary = `Profil Anda menunjukkan kesiapan tinggi untuk jalur ${careerName} (skor ${score}). Sebagian besar kompetensi inti sudah terpenuhi.`;
+      summary = `Your profile shows strong readiness for ${careerName} (score ${score}). Most core competencies are already met.`;
       break;
     case "READY_WITH_GAPS":
-      summary = `Profil Anda sudah cukup kuat untuk ${careerName} (skor ${score}), namun masih ada beberapa area penting yang perlu dikembangkan.`;
+      summary = `Your profile is reasonably strong for ${careerName} (score ${score}), but a few important areas still need development.`;
       break;
     case "DEVELOPING":
-      summary = `Anda sedang dalam tahap pengembangan untuk ${careerName} (skor ${score}). Beberapa fondasi sudah ada, tapi masih banyak gap yang harus ditutup.`;
+      summary = `You are in a developing stage for ${careerName} (score ${score}). Some foundations exist, but several gaps still need to be closed.`;
       break;
-    case "EXPLORING":
-      summary = `Saat ini profil Anda masih berada di tahap eksplorasi untuk ${careerName} (skor ${score}). Evidence terhadap kompetensi target masih terbatas.`;
-      break;
+    default:
+      summary = `Your profile is still in an exploring stage for ${careerName} (score ${score}). Evidence against the target competencies is limited.`;
   }
 
   return {
@@ -101,8 +100,8 @@ function generateExplanation(
     strongestAreas: strengths,
     mainGaps,
     contributingFactors: [
-      ...strengths.map((s) => `Kekuatan di ${s}`),
-      ...mainGaps.map((g) => `Gap pada ${g}`),
+      ...strengths.map((s) => `Strength in ${s}`),
+      ...mainGaps.map((g) => `Gap in ${g}`),
     ],
   };
 }
@@ -119,8 +118,8 @@ function generateActionPlan(gaps: CompetencyGap[]): ClassificationResult["action
       targetLevel: g.requiredLevel,
       suggestedAction:
         g.status === "MAJOR_GAP"
-          ? `Fokus membangun fondasi ${g.competencyName} (naikkan minimal 2 level).`
-          : `Tingkatkan ${g.competencyName} dari level ${g.currentLevel} ke ${g.requiredLevel}.`,
+          ? `Build a stronger foundation in ${g.competencyName} (raise at least 2 levels).`
+          : `Improve ${g.competencyName} from level ${g.currentLevel} to ${g.requiredLevel}.`,
     }));
 }
 

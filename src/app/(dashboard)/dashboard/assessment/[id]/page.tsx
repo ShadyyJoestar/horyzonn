@@ -88,7 +88,7 @@ export default async function AssessmentResultPage({
           <ClassificationBadge classification={assessment.classification} />
         </div>
         <p className="text-sm text-muted-foreground">
-          {new Date(assessment.created_at).toLocaleString("id-ID")} · Profile
+          {new Date(assessment.created_at).toLocaleString("en-US")} · Profile
           completeness {assessment.profile_completeness}% · Confidence{" "}
           <Badge variant="secondary">{assessment.confidence}</Badge>
         </p>
