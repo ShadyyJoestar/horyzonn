@@ -84,7 +84,7 @@ export default async function DashboardPage() {
                 variant="outline"
                 size="sm"
                 className="w-full"
-                render={<Link href="/assessment" />}
+                render={<Link href="/dashboard/assessment" />}
                 nativeButton={false}
               >
                 Start Assessment
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
                 variant="outline"
                 size="sm"
                 className="w-full"
-                render={<Link href="/academic" />}
+                render={<Link href="/dashboard/academic" />}
                 nativeButton={false}
               >
                 Explore Paths
@@ -137,7 +137,7 @@ export default async function DashboardPage() {
               variant="outline"
               size="sm"
               className="w-full"
-              render={<Link href="/profile" />}
+              render={<Link href="/dashboard/profile" />}
               nativeButton={false}
             >
               Manage Profile
