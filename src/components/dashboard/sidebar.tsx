@@ -8,6 +8,7 @@ import {
   Target,
   BookOpen,
   BarChart3,
+  Activity,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,9 +26,10 @@ interface Profile {
 const studentNav = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Profile", href: "/dashboard/profile", icon: User },
-  { name: "Careers", href: "/dashboard/careers", icon: BookOpen },
-  { name: "Assessments", href: "/dashboard/assessment", icon: Target },
-  { name: "Progress", href: "/dashboard/progress", icon: BarChart3 },
+  { name: "Academic Paths", href: "/dashboard/academic", icon: BookOpen },
+  { name: "Careers", href: "/dashboard/careers", icon: Target },
+  { name: "Assessments", href: "/dashboard/assessment", icon: BarChart3 },
+  { name: "Progress", href: "/dashboard/progress", icon: Activity },
 ];
 
 export function Sidebar({ profile }: { profile: Profile | null }) {
