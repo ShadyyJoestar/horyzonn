@@ -1,18 +1,24 @@
-// lib/classification/rules.ts
-
 import { ClassificationLevel } from "./types";
 
 export const CLASSIFICATION_THRESHOLDS = {
   CAREER_READY: 85,
   READY_WITH_GAPS: 70,
   DEVELOPING: 50,
-  // di bawah 50 = EXPLORING
 } as const;
 
-export function getClassificationLevel(score: number): ClassificationLevel {
-  if (score >= CLASSIFICATION_THRESHOLDS.CAREER_READY) return "CAREER_READY";
-  if (score >= CLASSIFICATION_THRESHOLDS.READY_WITH_GAPS) return "READY_WITH_GAPS";
-  if (score >= CLASSIFICATION_THRESHOLDS.DEVELOPING) return "DEVELOPING";
+export type Thresholds = {
+  CAREER_READY: number;
+  READY_WITH_GAPS: number;
+  DEVELOPING: number;
+};
+
+export function getClassificationLevel(
+  score: number,
+  thresholds: Thresholds = CLASSIFICATION_THRESHOLDS
+): ClassificationLevel {
+  if (score >= thresholds.CAREER_READY) return "CAREER_READY";
+  if (score >= thresholds.READY_WITH_GAPS) return "READY_WITH_GAPS";
+  if (score >= thresholds.DEVELOPING) return "DEVELOPING";
   return "EXPLORING";
 }
 

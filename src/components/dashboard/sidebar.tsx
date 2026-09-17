@@ -25,8 +25,8 @@ interface Profile {
 const studentNav = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Profile", href: "/dashboard/profile", icon: User },
-  { name: "Career Assessment", href: "/dashboard/assessment", icon: Target },
-  { name: "Academic Path", href: "/dashboard/academic", icon: BookOpen },
+  { name: "Careers", href: "/dashboard/careers", icon: BookOpen },
+  { name: "Assessments", href: "/dashboard/assessment", icon: Target },
   { name: "Progress", href: "/dashboard/progress", icon: BarChart3 },
 ];
 
