@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { resolveLandingPath } from "@/lib/auth/landing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +31,7 @@ export function LoginForm() {
 
     const supabase = createClient();
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -41,7 +42,13 @@ export function LoginForm() {
       return;
     }
 
-    router.push("/dashboard");
+    // FIX: dulu selalu push ke "/dashboard", jadi admin pun mendarat di
+    // dashboard member. Sekarang tujuan ditentukan dari role di profiles.
+    const destination = data.user
+      ? await resolveLandingPath(supabase, data.user.id)
+      : "/dashboard";
+
+    router.push(destination);
     router.refresh();
   }
 

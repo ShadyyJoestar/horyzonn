@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { resolveLandingPath } from "@/lib/auth/landing";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -52,8 +53,11 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isAuthPage && user) {
+    // FIX: dulu selalu ke "/dashboard". Admin yang membuka /login jadi
+    // terlempar ke dashboard member. Sekarang ikut role.
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = await resolveLandingPath(supabase, user.id);
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
