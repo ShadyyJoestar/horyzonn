@@ -25,16 +25,18 @@ export function RegisterForm() {
   const [password, setPassword] = useState("");
   const [primaryFocus, setPrimaryFocus] = useState<FocusOption>("both");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     setLoading(true);
 
     const supabase = createClient();
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -47,6 +49,17 @@ export function RegisterForm() {
 
     if (signUpError) {
       setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    // FIX: kalau email confirmation ON di Supabase, session belum kebentuk.
+    // Kalau dipaksa redirect ke /dashboard, middleware bakal tendang balik
+    // ke /login tanpa penjelasan. Tampilkan instruksi yang benar.
+    if (!data.session) {
+      setNotice(
+        "Account created. Check your email to confirm your account, then sign in."
+      );
       setLoading(false);
       return;
     }
@@ -69,6 +82,12 @@ export function RegisterForm() {
           {error && (
             <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
               {error}
+            </div>
+          )}
+
+          {notice && (
+            <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-sm text-emerald-600">
+              {notice}
             </div>
           )}
 
@@ -112,7 +131,6 @@ export function RegisterForm() {
             />
           </div>
 
-          {/* Primary Focus */}
           <div className="space-y-3">
             <Label>What are you looking for?</Label>
             <div className="grid gap-2">

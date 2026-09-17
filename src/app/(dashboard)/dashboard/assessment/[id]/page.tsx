@@ -18,6 +18,33 @@ import { ActionPlanList } from "@/components/assessment/action-plan-list";
 import { RunAssessmentButton } from "@/components/assessment/run-assessment-button";
 import { ArrowLeft } from "lucide-react";
 
+// FIX: gaps & actionPlan sekarang hidup di dalam explanation jsonb
+interface GapRow {
+  competency_name: string;
+  current_level: number;
+  required_level: number;
+  weight: number;
+  status: string;
+  gap_size: number;
+}
+
+interface ActionItem {
+  priority: number;
+  competencyName: string;
+  currentLevel: number;
+  targetLevel: number;
+  suggestedAction: string;
+}
+
+interface ExplanationJson {
+  summary?: string;
+  strongestAreas?: string[];
+  mainGaps?: string[];
+  contributingFactors?: string[];
+  gaps?: GapRow[];
+  actionPlan?: ActionItem[];
+}
+
 export default async function AssessmentResultPage({
   params,
 }: {
@@ -30,8 +57,9 @@ export default async function AssessmentResultPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // FIX: baca dari assessment_results, bukan "assessments"
   const { data: assessment } = await supabase
-    .from("assessments")
+    .from("assessment_results")
     .select("*, careers(id, name, slug)")
     .eq("id", id)
     .eq("user_id", user.id)
@@ -39,23 +67,15 @@ export default async function AssessmentResultPage({
 
   if (!assessment) notFound();
 
-  const { data: gaps } = await supabase
-    .from("assessment_gaps")
-    .select("*")
-    .eq("assessment_id", id)
-    .order("weight", { ascending: false });
-
   const career = Array.isArray(assessment.careers)
     ? assessment.careers[0]
     : assessment.careers;
 
-  const explanation =
-    typeof assessment.explanation === "object" && assessment.explanation
-      ? assessment.explanation
-      : {};
-
-  const actionPlan = Array.isArray(assessment.action_plan)
-    ? assessment.action_plan
+  // FIX: parse explanation jsonb (gaps & actionPlan ada di sini)
+  const explanation = (assessment.explanation ?? {}) as ExplanationJson;
+  const gaps = Array.isArray(explanation.gaps) ? explanation.gaps : [];
+  const actionPlan = Array.isArray(explanation.actionPlan)
+    ? explanation.actionPlan
     : [];
 
   return (
@@ -124,7 +144,7 @@ export default async function AssessmentResultPage({
             Current level vs required level for this career.
           </p>
         </div>
-        <GapTable gaps={gaps || []} />
+        <GapTable gaps={gaps} />
       </div>
 
       <ActionPlanList items={actionPlan} />

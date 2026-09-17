@@ -8,335 +8,219 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ClassificationBadge } from "@/components/assessment/classification-badge";
-import { computeProfileCompleteness } from "@/lib/profile-completeness";
-import { ArrowRight, Target, BookOpen, User, Activity } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import {
+  classifyAcademicProfile,
+  type AcademicOrientation,
+} from "@/lib/classification/academic";
+import { ArrowRight } from "lucide-react";
 
-const academicTypeLabel: Record<string, string> = {
-  TECHNICAL_ORIENTED: "Technical-Oriented",
-  CREATIVE_ORIENTED: "Creative-Oriented",
-  ANALYTICAL_ORIENTED: "Analytical-Oriented",
-  COMMUNICATION_ORIENTED: "Communication-Oriented",
+const ORIENTATION_LABEL: Record<AcademicOrientation, string> = {
+  TECHNICAL: "Technical-Oriented",
+  CREATIVE: "Creative-Oriented",
+  ANALYTICAL: "Analytical-Oriented",
+  COMMUNICATION: "Communication-Oriented",
   MULTIDISCIPLINARY: "Multidisciplinary",
 };
 
-export default async function DashboardPage() {
+const COMPATIBILITY_STYLE: Record<string, string> = {
+  HIGH: "bg-emerald-500/15 text-emerald-600",
+  MEDIUM: "bg-amber-500/15 text-amber-700",
+  EXPLORATORY: "bg-muted text-muted-foreground",
+};
+
+export default async function AcademicPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [
-    { data: profile },
-    { data: academic },
-    { count: skillsCount },
-    { count: experiencesCount },
-    { count: interestsCount },
-    { data: latestCareer },
-    { data: latestAcademic },
-  ] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).single(),
-    supabase.from("academic_records").select("*").eq("user_id", user.id).maybeSingle(),
-    supabase
-      .from("user_competencies")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
-    supabase
-      .from("experiences")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
-    supabase
-      .from("user_interests")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
-    supabase
-      .from("assessments")
-      .select(
-        "id, readiness_score, classification, confidence, created_at, careers(name)"
-      )
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("academic_classifications")
-      .select("id, profile_type, confidence, created_at, recommendations")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [{ data: academic }, { data: userCompetencies }, { data: interests }, { data: experiences }] =
+    await Promise.all([
+      supabase.from("academic_records").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase
+        .from("user_competencies")
+        .select("level, competencies(name, category)")
+        .eq("user_id", user.id),
+      supabase.from("user_interests").select("interest").eq("user_id", user.id),
+      supabase.from("experiences").select("type, title").eq("user_id", user.id),
+    ]);
 
-  const academicFields = academic
-    ? [
-        academic.mathematics,
-        academic.english,
-        academic.science,
-        academic.indonesian,
-        academic.social_studies,
-        academic.vocational,
-      ].filter((v) => v != null && Number(v) > 0).length
-    : 0;
+  const hasAnyData =
+    academic ||
+    (userCompetencies && userCompetencies.length > 0) ||
+    (interests && interests.length > 0);
 
-  const completeness = computeProfileCompleteness({
-    hasAcademic: !!academic,
-    academicFieldsFilled: academicFields,
-    skillsCount: skillsCount || 0,
-    experiencesCount: experiencesCount || 0,
-    interestsCount: interestsCount || 0,
+  const skills = (userCompetencies || []).map((uc) => {
+    const comp = Array.isArray(uc.competencies) ? uc.competencies[0] : uc.competencies;
+    return {
+      name: (comp as { name?: string } | null)?.name || "Unknown",
+      category: (comp as { category?: string } | null)?.category || "",
+      level: uc.level,
+    };
   });
 
-  const focus = profile?.primary_focus || "both";
-  const careerName = latestCareer
-    ? (Array.isArray(latestCareer.careers)
-        ? latestCareer.careers[0]
-        : latestCareer.careers) as { name?: string } | null
-    : null;
+  const result = classifyAcademicProfile({
+    academic: {
+      mathematics: academic?.mathematics ?? null,
+      english: academic?.english ?? null,
+      science: academic?.science ?? null,
+      indonesian: academic?.indonesian ?? null,
+      social_studies: academic?.social_studies ?? null,
+      vocational: academic?.vocational ?? null,
+    },
+    skills,
+    interests: (interests || []).map((i) => i.interest),
+    experiences: (experiences || []).map((e) => ({ type: e.type, title: e.title })),
+  });
 
-  const topPaths = Array.isArray(latestAcademic?.recommendations)
-    ? latestAcademic!.recommendations.slice(0, 3)
-    : [];
+  const orientations: Exclude<AcademicOrientation, "MULTIDISCIPLINARY">[] = [
+    "TECHNICAL",
+    "CREATIVE",
+    "ANALYTICAL",
+    "COMMUNICATION",
+  ];
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-6 max-w-4xl">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Academic Path</h2>
         <p className="text-muted-foreground mt-1">
-          Where you are now, and what&apos;s your next horizon.
+          Understand your academic profile and explore compatible education paths.
         </p>
       </div>
 
-      {/* Completeness */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Profile completeness</CardTitle>
-            <span className="text-sm font-medium tabular-nums">{completeness}%</span>
-          </div>
-          <CardDescription>
-            Academic, skills, experiences, and interests feed both academic and
-            career classification.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Progress value={completeness} className="h-2" />
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-            <span>Academic fields: {academicFields}</span>
-            <span>Skills: {skillsCount || 0}</span>
-            <span>Experiences: {experiencesCount || 0}</span>
-            <span>Interests: {interestsCount || 0}</span>
-          </div>
-          {completeness < 80 && (
+      {!hasAnyData ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">No profile data yet</CardTitle>
+            <CardDescription>
+              Complete your academic data, skills, and interests to get your
+              academic profile classification.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <Button
               size="sm"
               render={<Link href="/dashboard/profile" />}
               nativeButton={false}
             >
-              Complete profile
+              Complete Profile
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Two classification pillars */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              <CardTitle className="text-base">Academic classification</CardTitle>
-            </div>
-            <CardDescription>
-              Profile type and education path compatibility
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {latestAcademic ? (
-              <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge>
-                    {academicTypeLabel[latestAcademic.profile_type] ||
-                      latestAcademic.profile_type}
-                  </Badge>
-                  <Badge variant="secondary">{latestAcademic.confidence}</Badge>
-                </div>
-                {topPaths.length > 0 && (
-                  <ul className="text-sm space-y-1">
-                    {topPaths.map(
-                      (p: { name: string; compatibility: number; level: string }) => (
-                        <li key={p.name} className="flex justify-between gap-2">
-                          <span className="truncate">{p.name}</span>
-                          <span className="text-muted-foreground tabular-nums shrink-0">
-                            {p.compatibility}% · {p.level}
-                          </span>
-                        </li>
-                      )
-                    )}
-                  </ul>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  render={<Link href={`/dashboard/academic/${latestAcademic.id}`} />}
-                  nativeButton={false}
-                >
-                  View details
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  No academic classification yet.
-                </p>
-                <Button
-                  size="sm"
-                  render={<Link href="/dashboard/academic" />}
-                  nativeButton={false}
-                >
-                  Classify academic profile
-                </Button>
-              </>
-            )}
           </CardContent>
         </Card>
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center gap-3">
+                <CardTitle className="text-base">Academic Profile</CardTitle>
+                <Badge className="bg-primary/15 text-primary border-0">
+                  {ORIENTATION_LABEL[result.orientation]}
+                </Badge>
+              </div>
+              <CardDescription>
+                Derived from your actual academic records, skills, interests, and
+                experiences — classification, not prediction.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm leading-relaxed">
+                {result.explanation.summary}
+              </p>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              <CardTitle className="text-base">Career readiness</CardTitle>
-            </div>
-            <CardDescription>
-              Latest readiness score against a target career
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {latestCareer ? (
-              <>
-                <p className="text-sm font-medium">
-                  {careerName?.name || "Career"}
-                </p>
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl font-semibold tabular-nums">
-                    {latestCareer.readiness_score}
-                    <span className="text-base text-muted-foreground font-normal">
-                      /100
+              <div className="space-y-2">
+                {orientations.map((o) => (
+                  <div key={o} className="flex items-center gap-3">
+                    <span className="text-xs w-36 shrink-0 text-muted-foreground">
+                      {ORIENTATION_LABEL[o]}
                     </span>
-                  </span>
-                  <ClassificationBadge
-                    classification={latestCareer.classification}
-                  />
+                    <Progress value={result.scores[o]} className="h-2 flex-1" />
+                    <span className="text-xs tabular-nums w-8 text-right">
+                      {result.scores[o]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {result.explanation.contributingFactors.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                    Contributing factors
+                  </p>
+                  <ul className="list-disc list-inside text-sm space-y-0.5">
+                    {result.explanation.contributingFactors.map((f) => (
+                      <li key={f}>{f}</li>
+                    ))}
+                  </ul>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  render={<Link href={`/dashboard/assessment/${latestCareer.id}`} />}
-                  nativeButton={false}
-                >
-                  View assessment
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  No career assessment yet.
-                </p>
-                <Button
-                  size="sm"
-                  render={<Link href="/dashboard/careers" />}
-                  nativeButton={false}
-                >
-                  Choose a career
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Quick actions */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <User className="h-4 w-4 mb-1" />
-            <CardTitle className="text-sm">Profile</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              render={<Link href="/dashboard/profile" />}
-              nativeButton={false}
-            >
-              Edit data
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <BookOpen className="h-4 w-4 mb-1" />
-            <CardTitle className="text-sm">Academic paths</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              render={<Link href="/dashboard/academic" />}
-              nativeButton={false}
-            >
-              Open
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <Target className="h-4 w-4 mb-1" />
-            <CardTitle className="text-sm">Careers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              render={<Link href="/dashboard/careers" />}
-              nativeButton={false}
-            >
-              Open
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <Activity className="h-4 w-4 mb-1" />
-            <CardTitle className="text-sm">Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              render={<Link href="/dashboard/progress" />}
-              nativeButton={false}
-            >
-              Open
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-base font-semibold">Education Path Recommendations</h3>
+              <p className="text-sm text-muted-foreground">
+                Compatibility between your profile and each path.
+              </p>
+            </div>
 
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>Focus:</span>
-        <Badge variant="secondary" className="capitalize">
-          {focus}
-        </Badge>
-      </div>
+            {result.recommendations.map((rec) => (
+              <div
+                key={rec.name}
+                className="rounded-lg border border-border p-4 space-y-2"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium text-sm">{rec.name}</p>
+                  <Badge
+                    variant="outline"
+                    className={`border-0 font-medium ${COMPATIBILITY_STYLE[rec.compatibility]}`}
+                  >
+                    {rec.compatibility} Compatibility
+                  </Badge>
+                </div>
+                {rec.factors.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Because: {rec.factors.join(" · ")}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">What next?</CardTitle>
+              <CardDescription>
+                A career-ready profile starts with a complete academic profile.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                render={<Link href="/dashboard/profile" />}
+                nativeButton={false}
+              >
+                Update Profile
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                render={<Link href="/dashboard/careers" />}
+                nativeButton={false}
+              >
+                Explore Careers
+              </Button>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

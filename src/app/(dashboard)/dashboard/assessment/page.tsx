@@ -19,8 +19,9 @@ export default async function AssessmentHistoryPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // FIX: tabel asli = assessment_results
   const { data: assessments } = await supabase
-    .from("assessments")
+    .from("assessment_results")
     .select(
       "id, readiness_score, classification, confidence, created_at, careers(name, slug)"
     )

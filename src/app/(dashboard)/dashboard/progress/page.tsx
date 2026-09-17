@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ClassificationBadge } from "@/components/assessment/classification-badge";
@@ -22,9 +21,9 @@ export default async function ProgressPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // All assessments (oldest → newest for chart)
+  // FIX: tabel asli = assessment_results
   const { data: assessments } = await supabase
-    .from("assessments")
+    .from("assessment_results")
     .select(
       "id, readiness_score, classification, confidence, profile_completeness, created_at, career_id, careers(name, slug)"
     )
@@ -33,7 +32,6 @@ export default async function ProgressPage() {
 
   const list = assessments || [];
 
-  // Group by career for per-career progress
   const byCareer = new Map<
     string,
     {
@@ -55,7 +53,6 @@ export default async function ProgressPage() {
     byCareer.get(key)!.items.push(a);
   }
 
-  // Overall stats
   const latest = list.length ? list[list.length - 1] : null;
   const previous = list.length > 1 ? list[list.length - 2] : null;
 
@@ -64,7 +61,6 @@ export default async function ProgressPage() {
     delta = latest.readiness_score - previous.readiness_score;
   }
 
-  // Chart data (all assessments chronological)
   const chartData = list.map((a) => {
     const career = Array.isArray(a.careers) ? a.careers[0] : a.careers;
     const name = (career as { name?: string } | null)?.name || "Career";
@@ -80,7 +76,6 @@ export default async function ProgressPage() {
     };
   });
 
-  // Profile completeness from latest assessment or compute lightly
   const completeness = latest?.profile_completeness ?? 0;
 
   return (
@@ -113,7 +108,6 @@ export default async function ProgressPage() {
         </div>
       </div>
 
-      {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
@@ -180,7 +174,6 @@ export default async function ProgressPage() {
         </Card>
       </div>
 
-      {/* Profile completeness */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -209,7 +202,6 @@ export default async function ProgressPage() {
         </CardContent>
       </Card>
 
-      {/* Chart */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Readiness over time</CardTitle>
@@ -238,7 +230,6 @@ export default async function ProgressPage() {
         </CardContent>
       </Card>
 
-      {/* Per-career progress */}
       <div className="space-y-4">
         <div>
           <h3 className="text-base font-semibold">Progress by career</h3>
@@ -321,7 +312,6 @@ export default async function ProgressPage() {
         )}
       </div>
 
-      {/* Timeline (newest first) */}
       <div className="space-y-4">
         <div>
           <h3 className="text-base font-semibold">Recent activity</h3>

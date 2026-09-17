@@ -18,10 +18,12 @@ export default async function CareersPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // FIX: filter is_active dihapus (kolom belum tentu ada di tabel careers).
+  // Kalau nanti lu tambahin kolom is_active di Supabase, tinggal
+  // tambahin lagi: .eq("is_active", true)
   const { data: careers } = await supabase
     .from("careers")
     .select("id, name, slug, description")
-    .eq("is_active", true)
     .order("name");
 
   return (

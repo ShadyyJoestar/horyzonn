@@ -21,16 +21,30 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  const [{ data: profile }, { data: academic }, { data: competencies }, { data: experiences }, { data: interests }] =
+    await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase.from("academic_records").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("user_competencies").select("id").eq("user_id", user.id),
+      supabase.from("experiences").select("id").eq("user_id", user.id),
+      supabase.from("user_interests").select("id").eq("user_id", user.id),
+    ]);
 
   const focus = profile?.primary_focus || "both";
 
-  // Sementara masih dummy — nanti diganti hitungan real
-  const profileCompleteness = 15;
+  // FIX: profile completeness dihitung dari data real (sama dengan engine)
+  let profileCompleteness = 0;
+  const academicFilled = [
+    academic?.mathematics,
+    academic?.english,
+    academic?.science,
+    academic?.indonesian,
+  ].filter((v) => typeof v === "number" && v > 0).length;
+  profileCompleteness += Math.min(academicFilled / 4, 1) * 25;
+  profileCompleteness += Math.min((competencies?.length || 0) / 8, 1) * 30;
+  profileCompleteness += Math.min((experiences?.length || 0) / 3, 1) * 25;
+  profileCompleteness += Math.min((interests?.length || 0) / 3, 1) * 20;
+  profileCompleteness = Math.round(profileCompleteness);
 
   return (
     <div className="space-y-8 max-w-5xl">

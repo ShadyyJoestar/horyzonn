@@ -18,15 +18,20 @@ import { redirect } from "next/navigation";
 async function loadThresholds(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<Thresholds> {
-  const { data } = await supabase.from("classification_rules").select("name, value");
+  const { data } = await supabase
+    .from("classification_rules")
+    .select("name, value");
 
   const map = new Map((data || []).map((r) => [r.name, Number(r.value)]));
 
   return {
-    CAREER_READY: map.get("career_ready_threshold") ?? CLASSIFICATION_THRESHOLDS.CAREER_READY,
+    CAREER_READY:
+      map.get("career_ready_threshold") ?? CLASSIFICATION_THRESHOLDS.CAREER_READY,
     READY_WITH_GAPS:
-      map.get("ready_with_gaps_threshold") ?? CLASSIFICATION_THRESHOLDS.READY_WITH_GAPS,
-    DEVELOPING: map.get("developing_threshold") ?? CLASSIFICATION_THRESHOLDS.DEVELOPING,
+      map.get("ready_with_gaps_threshold") ??
+      CLASSIFICATION_THRESHOLDS.READY_WITH_GAPS,
+    DEVELOPING:
+      map.get("developing_threshold") ?? CLASSIFICATION_THRESHOLDS.DEVELOPING,
   };
 }
 
@@ -40,7 +45,6 @@ export async function runAssessment(careerId: string) {
     throw new Error("Unauthorized");
   }
 
-  // Parallel fetch
   const [
     { data: career, error: careerError },
     { data: requirements },
@@ -73,10 +77,8 @@ export async function runAssessment(careerId: string) {
     throw new Error("Career has no competency requirements");
   }
 
-  // Map ke tipe engine
   const competencyNames: Record<string, string> = {};
   const competencyRequirements = requirements.map((r) => {
-    // competencies bisa object atau array tergantung join
     const comp = Array.isArray(r.competencies) ? r.competencies[0] : r.competencies;
     const name = (comp as { name?: string } | null)?.name || r.competency_id;
     competencyNames[r.competency_id] = name;
@@ -121,15 +123,18 @@ export async function runAssessment(careerId: string) {
     })),
   };
 
-  // Jalankan engine
   const result = runCareerClassification(userProfile, careerProfile, competencyNames);
-
-  // Override classification pakai threshold dari DB
   result.classification = getClassificationLevel(result.readinessScore, thresholds);
 
-  // Simpan assessment
+  // ============================================================
+  // FIX: tabel asli = assessment_results (lihat screenshot Supabase)
+  // Kolom: id, user_id, career_id, readiness_score, classification,
+  //        confidence, profile_completeness, explanation (jsonb), created_at
+  // Tidak ada kolom action_plan → gaps & actionPlan disimpan
+  // di dalam explanation jsonb (snake_case, cocok dengan GapTable).
+  // ============================================================
   const { data: assessment, error: insertError } = await supabase
-    .from("assessments")
+    .from("assessment_results")
     .insert({
       user_id: user.id,
       career_id: careerId,
@@ -137,8 +142,21 @@ export async function runAssessment(careerId: string) {
       classification: result.classification,
       confidence: result.confidence,
       profile_completeness: result.profileCompleteness,
-      explanation: result.explanation,
-      action_plan: result.actionPlan,
+      explanation: {
+        summary: result.explanation.summary,
+        strongestAreas: result.explanation.strongestAreas,
+        mainGaps: result.explanation.mainGaps,
+        contributingFactors: result.explanation.contributingFactors,
+        gaps: result.gaps.map((g) => ({
+          competency_name: g.competencyName,
+          current_level: g.currentLevel,
+          required_level: g.requiredLevel,
+          weight: g.weight,
+          status: g.status,
+          gap_size: g.gapSize,
+        })),
+        actionPlan: result.actionPlan,
+      },
     })
     .select("id")
     .single();
@@ -147,27 +165,8 @@ export async function runAssessment(careerId: string) {
     throw new Error(insertError?.message || "Failed to save assessment");
   }
 
-  // Simpan gaps
-  if (result.gaps.length > 0) {
-    const { error: gapsError } = await supabase.from("assessment_gaps").insert(
-      result.gaps.map((g) => ({
-        assessment_id: assessment.id,
-        competency_id: g.competencyId,
-        competency_name: g.competencyName,
-        current_level: g.currentLevel,
-        required_level: g.requiredLevel,
-        weight: g.weight,
-        status: g.status,
-        gap_size: g.gapSize,
-      }))
-    );
-
-    if (gapsError) {
-      console.error("Failed to save gaps:", gapsError.message);
-    }
-  }
-
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/assessment");
+  revalidatePath("/dashboard/progress");
   redirect(`/dashboard/assessment/${assessment.id}`);
 }
