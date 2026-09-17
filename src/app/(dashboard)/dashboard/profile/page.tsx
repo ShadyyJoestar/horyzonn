@@ -5,6 +5,7 @@ import { AcademicForm } from "@/components/profile/academics-form";
 import { SkillsForm } from "@/components/profile/skills-form";
 import { ExperiencesForm } from "@/components/profile/experiences-form";
 import { InterestsForm } from "@/components/profile/interests-form";
+import { groupRubricsByCategory } from "@/lib/classification/level-rubric";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -14,20 +15,37 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login");
 
-  // Ambil data existing
   const [
     { data: academic },
     { data: userCompetencies },
     { data: experiences },
     { data: interests },
     { data: allCompetencies },
+    { data: rubrics },
   ] = await Promise.all([
-    supabase.from("academic_records").select("*").eq("user_id", user.id).maybeSingle(),
-    supabase.from("user_competencies").select("*, competencies(id, name, category)").eq("user_id", user.id),
-    supabase.from("experiences").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+    supabase
+      .from("academic_records")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("user_competencies")
+      .select("*, competencies(id, name, category)")
+      .eq("user_id", user.id),
+    supabase
+      .from("experiences")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }),
     supabase.from("user_interests").select("*").eq("user_id", user.id),
     supabase.from("competencies").select("*").order("name"),
+    supabase
+      .from("competency_rubrics")
+      .select("category, level, label, description, example_evidence")
+      .order("level"),
   ]);
+
+  const rubricsByCategory = groupRubricsByCategory(rubrics || []);
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -47,10 +65,7 @@ export default async function ProfilePage() {
         </TabsList>
 
         <TabsContent value="academic" className="mt-6">
-          <AcademicForm
-            userId={user.id}
-            initialData={academic}
-          />
+          <AcademicForm userId={user.id} initialData={academic} />
         </TabsContent>
 
         <TabsContent value="skills" className="mt-6">
@@ -58,6 +73,7 @@ export default async function ProfilePage() {
             userId={user.id}
             allCompetencies={allCompetencies || []}
             userCompetencies={userCompetencies || []}
+            rubricsByCategory={rubricsByCategory}
           />
         </TabsContent>
 

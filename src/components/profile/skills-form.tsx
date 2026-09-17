@@ -1,3 +1,4 @@
+// src/components/profile/skills-form.tsx
 "use client";
 
 import { useState } from "react";
@@ -19,6 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LevelPicker } from "@/components/profile/level-picker";
+import type { RubricLevel } from "@/lib/classification/level-rubric";
+import { Pencil, Trash2 } from "lucide-react";
 
 interface Competency {
   id: string;
@@ -38,25 +42,37 @@ export function SkillsForm({
   userId,
   allCompetencies,
   userCompetencies: initial,
+  rubricsByCategory,
 }: {
   userId: string;
   allCompetencies: Competency[];
   userCompetencies: UserCompetency[];
+  rubricsByCategory: Record<string, RubricLevel[]>;
 }) {
   const [userCompetencies, setUserCompetencies] = useState(initial);
   const [selectedCompetency, setSelectedCompetency] = useState("");
-  const [level, setLevel] = useState("3");
+  const [level, setLevel] = useState(3);
   const [evidence, setEvidence] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const selectedCategory =
+    allCompetencies.find((c) => c.id === selectedCompetency)?.category || "";
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedCompetency) return;
 
+    if (level >= 4 && !evidence.trim()) {
+      setMessage(
+        "Level 4–5 needs evidence (studi kasus §22: no self-rating without context)."
+      );
+      return;
+    }
+
     setLoading(true);
     setMessage(null);
-
     const supabase = createClient();
 
     const { data, error } = await supabase
@@ -64,8 +80,8 @@ export function SkillsForm({
       .insert({
         user_id: userId,
         competency_id: selectedCompetency,
-        level: Number(level),
-        evidence: evidence || null,
+        level,
+        evidence: evidence.trim() || null,
       })
       .select("*, competencies(id, name, category)")
       .single();
@@ -75,21 +91,45 @@ export function SkillsForm({
     } else if (data) {
       setUserCompetencies((prev) => [...prev, data]);
       setSelectedCompetency("");
-      setLevel("3");
+      setLevel(3);
       setEvidence("");
       setMessage("Skill added");
     }
     setLoading(false);
   }
 
-  async function handleDelete(id: string) {
+  async function handleUpdateLevel(id: string, newLevel: number, ev: string | null) {
+    if (newLevel >= 4 && !ev?.trim()) {
+      setMessage("Level 4–5 needs evidence. Describe a project, competition, or proof.");
+      return;
+    }
+    setLoading(true);
+    setMessage(null);
     const supabase = createClient();
     const { error } = await supabase
       .from("user_competencies")
-      .delete()
+      .update({ level: newLevel })
       .eq("id", id);
+
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setUserCompetencies((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, level: newLevel } : c))
+      );
+      setEditingId(null);
+      setMessage("Level updated — run a reassessment to see progress");
+    }
+    setLoading(false);
+  }
+
+  async function handleDelete(id: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from("user_competencies").delete().eq("id", id);
     if (!error) {
       setUserCompetencies((prev) => prev.filter((c) => c.id !== id));
+    } else {
+      setMessage(error.message);
     }
   }
 
@@ -102,7 +142,8 @@ export function SkillsForm({
         <CardHeader>
           <CardTitle>Your Skills</CardTitle>
           <CardDescription>
-            Level 1 (Beginner) → 5 (Expert). Add evidence for better confidence.
+            Self-rated levels guided by rubrics. Update a level after you improve,
+            then reassess to track progress.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,28 +154,55 @@ export function SkillsForm({
               {userCompetencies.map((uc) => (
                 <div
                   key={uc.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border border-border p-3"
+                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 rounded-lg border border-border p-3"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium text-sm">
                       {uc.competencies?.name || "Unknown"}
+                      <span className="ml-2 text-xs text-muted-foreground capitalize">
+                        {uc.competencies?.category}
+                      </span>
                     </p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {uc.competencies?.category} · Level {uc.level}
-                    </p>
+                    {editingId === uc.id ? (
+                      <div className="mt-2 max-w-xs">
+                        <LevelPicker
+                          rubrics={
+                            rubricsByCategory[uc.competencies?.category || ""] ||
+                            rubricsByCategory["general"]
+                          }
+                          value={uc.level}
+                          onSelect={(l) => handleUpdateLevel(uc.id, l, uc.evidence)}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Level {uc.level}
+                      </p>
+                    )}
                     {uc.evidence && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {uc.evidence}
+                        🧾 {uc.evidence}
                       </p>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(uc.id)}
-                  >
-                    Remove
-                  </Button>
+                  <div className="flex gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setEditingId(editingId === uc.id ? null : uc.id)
+                      }
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(uc.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -145,6 +213,9 @@ export function SkillsForm({
       <Card>
         <CardHeader>
           <CardTitle>Add Skill</CardTitle>
+          <CardDescription>
+            Tap the level button to see what each level means before choosing.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAdd} className="space-y-4">
@@ -158,6 +229,11 @@ export function SkillsForm({
                   <SelectValue placeholder="Select a competency" />
                 </SelectTrigger>
                 <SelectContent>
+                  {available.length === 0 && (
+                    <SelectItem value="__none" disabled>
+                      All competencies added
+                    </SelectItem>
+                  )}
                   {available.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name} ({c.category})
@@ -168,29 +244,24 @@ export function SkillsForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Level (1–5)</Label>
-              <Select
+              <Label>Level — what does it mean?</Label>
+              <LevelPicker
+                rubrics={
+                  rubricsByCategory[selectedCategory] ||
+                  rubricsByCategory["general"]
+                }
                 value={level}
-                onValueChange={(v) => setLevel(v ?? "3")}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}{" "}
-                      {n === 1 ? "(Beginner)" : n === 5 ? "(Expert)" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onSelect={setLevel}
+              />
             </div>
 
             <div className="space-y-2">
-              <Label>Evidence (optional)</Label>
+              <Label>
+                Evidence{" "}
+                {level >= 4 && <span className="text-destructive">(required for Lv4–5)</span>}
+              </Label>
               <Textarea
-                placeholder="e.g. Built 3 full-stack projects using Next.js & Supabase"
+                placeholder="e.g. Built 3 full-stack projects using Next.js & Supabase; 2nd place at FTP vibe coding 2026"
                 value={evidence}
                 onChange={(e) => setEvidence(e.target.value)}
                 rows={2}
@@ -200,8 +271,8 @@ export function SkillsForm({
             {message && (
               <p
                 className={`text-sm ${
-                  message.includes("added")
-                    ? "text-green-500"
+                  message.includes("added") || message.includes("updated")
+                    ? "text-green-600"
                     : "text-destructive"
                 }`}
               >

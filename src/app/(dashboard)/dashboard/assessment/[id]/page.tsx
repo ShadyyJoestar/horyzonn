@@ -1,3 +1,4 @@
+// src/app/(dashboard)/dashboard/assessment/[id]/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -16,9 +17,10 @@ import { GapTable } from "@/components/assessment/gap-table";
 import { ExplanationCard } from "@/components/assessment/explanation-card";
 import { ActionPlanList } from "@/components/assessment/action-plan-list";
 import { RunAssessmentButton } from "@/components/assessment/run-assessment-button";
+import { ShareButton } from "@/components/assessment/share-button";
+import { FeedbackForm } from "@/components/assessment/feedback-form";
 import { ArrowLeft } from "lucide-react";
 
-// FIX: gaps & actionPlan sekarang hidup di dalam explanation jsonb
 interface GapRow {
   competency_name: string;
   current_level: number;
@@ -57,13 +59,34 @@ export default async function AssessmentResultPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // FIX: baca dari assessment_results, bukan "assessments"
-  const { data: assessment } = await supabase
-    .from("assessment_results")
-    .select("*, careers(id, name, slug)")
-    .eq("id", id)
+  const [{ data: assessment }, { data: share }] = await Promise.all([
+    supabase
+      .from("assessment_results")
+      .select("*, careers(id, name, slug)")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single(),
+    supabase
+      .from("shared_assessments")
+      .select("token")
+      .eq("assessment_id", id)
+      .is("revoked_at", null)
+      .maybeSingle(),
+    // NOTE: feedback check
+    supabase
+      .from("feedbacks")
+      .select("id")
+      .eq("assessment_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
+
+  const { data: existingFeedback } = await supabase
+    .from("feedbacks")
+    .select("id")
+    .eq("assessment_id", id)
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!assessment) notFound();
 
@@ -71,7 +94,6 @@ export default async function AssessmentResultPage({
     ? assessment.careers[0]
     : assessment.careers;
 
-  // FIX: parse explanation jsonb (gaps & actionPlan ada di sini)
   const explanation = (assessment.explanation ?? {}) as ExplanationJson;
   const gaps = Array.isArray(explanation.gaps) ? explanation.gaps : [];
   const actionPlan = Array.isArray(explanation.actionPlan)
@@ -91,6 +113,10 @@ export default async function AssessmentResultPage({
           History
         </Button>
         <div className="flex items-center gap-2">
+          <ShareButton
+            assessmentId={assessment.id}
+            existingToken={share?.token ?? null}
+          />
           {(career as { id?: string } | null)?.id && (
             <RunAssessmentButton
               careerId={(career as { id: string }).id}
@@ -144,7 +170,9 @@ export default async function AssessmentResultPage({
             Current level vs required level for this career.
           </p>
         </div>
-        <GapTable gaps={gaps} />
+        <div className="overflow-x-auto">
+          <GapTable gaps={gaps} />
+        </div>
       </div>
 
       <ActionPlanList items={actionPlan} />
@@ -157,24 +185,16 @@ export default async function AssessmentResultPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            render={<Link href="/dashboard/profile" />}
-            nativeButton={false}
-          >
+          <Button size="sm" variant="outline" render={<Link href="/dashboard/profile" />} nativeButton={false}>
             Update Skills
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            render={<Link href="/dashboard/careers" />}
-            nativeButton={false}
-          >
-            Compare Other Careers
+          <Button size="sm" variant="outline" render={<Link href="/dashboard/careers/compare" />} nativeButton={false}>
+            Compare Careers
           </Button>
         </CardContent>
       </Card>
+
+      {!existingFeedback && <FeedbackForm assessmentId={assessment.id} />}
     </div>
   );
 }
