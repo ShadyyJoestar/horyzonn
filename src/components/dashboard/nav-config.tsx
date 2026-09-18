@@ -22,7 +22,8 @@ export type DashboardIconName =
   | "FileText"
   | "ScrollText"
   | "MessageCircle"
-  | "Sparkles";
+  | "Sparkles"
+  | "BookOpen";
 
 export type DashboardNavItem = {
   href: string;
@@ -35,6 +36,11 @@ export const studentNav: DashboardNavItem[] = [
     href: "/dashboard",
     label: "Overview",
     icon: "LayoutDashboard",
+  },
+  {
+    href: "/dashboard/documentation",
+    label: "Documentation",
+    icon: "BookOpen",
   },
   {
     href: "/dashboard/profile",

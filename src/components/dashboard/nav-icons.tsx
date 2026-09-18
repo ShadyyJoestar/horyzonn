@@ -3,6 +3,7 @@
 import {
   Activity,
   BarChart3,
+  BookOpen,
   Brain,
   Briefcase,
   FileText,
@@ -37,6 +38,7 @@ export const dashboardIconMap: Record<DashboardIconName, LucideIcon> = {
   ScrollText,
   MessageCircle,
   Sparkles,
+  BookOpen,
 };
 
 export function getDashboardIcon(name: DashboardIconName): LucideIcon {
