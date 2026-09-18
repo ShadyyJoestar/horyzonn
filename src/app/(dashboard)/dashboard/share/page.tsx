@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { ShareManager } from "@/components/dashboard/share-manager";
+import {
+  ShareManager,
+  type ShareManagerItem,
+} from "@/components/dashboard/share-manager";
 
 export const metadata = {
   title: "Shared assessments · Horyzon",
@@ -65,14 +68,18 @@ export default async function DashboardSharePage() {
   const safeShares = (shares ?? []) as ShareRow[];
 
   const assessmentIds = [
-    ...new Set(safeShares.map((share) => share.assessment_id)),
+    ...new Set(
+      safeShares.map((share) => share.assessment_id)
+    ),
   ];
 
   const counselorIds = [
     ...new Set(
       safeShares
         .map((share) => share.counselor_id)
-        .filter((id): id is string => Boolean(id))
+        .filter(
+          (id): id is string => Boolean(id)
+        )
     ),
   ];
 
@@ -101,7 +108,9 @@ export default async function DashboardSharePage() {
   if (counselorIds.length > 0) {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, role")
+      .select(
+        "id, full_name, email, role"
+      )
       .in("id", counselorIds);
 
     if (error) {
@@ -115,16 +124,24 @@ export default async function DashboardSharePage() {
   }
 
   const assessmentMap = new Map(
-    assessments.map((assessment) => [assessment.id, assessment])
+    assessments.map((assessment) => [
+      assessment.id,
+      assessment,
+    ])
   );
 
   const counselorMap = new Map(
-    counselors.map((counselor) => [counselor.id, counselor])
+    counselors.map((counselor) => [
+      counselor.id,
+      counselor,
+    ])
   );
 
-  const items = safeShares
-    .map((share) => {
-      const assessment = assessmentMap.get(share.assessment_id);
+  const items: ShareManagerItem[] = safeShares
+    .map((share): ShareManagerItem | null => {
+      const assessment = assessmentMap.get(
+        share.assessment_id
+      );
 
       if (!assessment) {
         return null;
@@ -138,6 +155,13 @@ export default async function DashboardSharePage() {
         ? counselorMap.get(share.counselor_id) ?? null
         : null;
 
+      // Explicit typing supaya TypeScript tidak melebarkan
+      // literal "counselor" | "link" menjadi string.
+      const audience: ShareManagerItem["audience"] =
+        share.counselor_id
+          ? "counselor"
+          : "link";
+
       return {
         id: share.id,
         assessmentId: share.assessment_id,
@@ -146,9 +170,8 @@ export default async function DashboardSharePage() {
         createdAt: share.created_at,
         expiresAt: share.expires_at,
         revokedAt: share.revoked_at,
-        audience: share.counselor_id
-          ? "counselor"
-          : "link",
+        audience,
+
         counselor: counselor
           ? {
               name: counselor.full_name,
@@ -156,17 +179,22 @@ export default async function DashboardSharePage() {
               role: counselor.role,
             }
           : null,
+
         assessment: {
           createdAt: assessment.created_at,
-          readinessScore: assessment.readiness_score,
-          classification: assessment.classification,
+          readinessScore:
+            assessment.readiness_score,
+          classification:
+            assessment.classification,
           careerName: career?.name ?? null,
         },
       };
     })
     .filter(
-      (item): item is NonNullable<typeof item> =>
-        Boolean(item)
+      (
+        item
+      ): item is ShareManagerItem =>
+        item !== null
     );
 
   return (
@@ -177,14 +205,15 @@ export default async function DashboardSharePage() {
         </h2>
 
         <p className="text-muted-foreground mt-1">
-          Kelola assessment yang pernah kamu bagikan lewat link atau
-          langsung ke counselor.
+          Kelola assessment yang pernah kamu bagikan
+          lewat link atau langsung ke counselor.
         </p>
       </div>
 
       {sharesError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          Gagal memuat daftar share: {sharesError.message}
+          Gagal memuat daftar share:{" "}
+          {sharesError.message}
         </div>
       )}
 
