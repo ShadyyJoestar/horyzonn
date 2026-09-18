@@ -1,5 +1,6 @@
 // src/lib/counselor/guards.ts
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { User } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -40,12 +41,23 @@ export async function requireCounselor(): Promise<
   }
 }
 
+/** Pakai admin client supaya RLS tidak nutup row share. */
 export async function counselorHasAccess(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   assessmentId: string,
   counselorId: string
 ): Promise<boolean> {
-  const { data } = await supabase
+  const admin = createAdminClient();
+
+  const { data: me } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", counselorId)
+    .maybeSingle();
+
+  if (me?.role === "admin") return true;
+
+  const { data } = await admin
     .from("shared_assessments")
     .select("id, expires_at")
     .eq("assessment_id", assessmentId)
@@ -58,21 +70,22 @@ export async function counselorHasAccess(
   );
 }
 
-/** Akses student: shared assessment ATAU pernah kirim pertanyaan ke pool counselor. */
 export async function counselorHasStudentAccess(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   studentId: string,
   counselorId: string
 ): Promise<boolean> {
-  // Admin selalu boleh
-  const { data: me } = await supabase
+  const admin = createAdminClient();
+
+  const { data: me } = await admin
     .from("profiles")
     .select("role")
     .eq("id", counselorId)
     .maybeSingle();
+
   if (me?.role === "admin") return true;
 
-  const { data: shares } = await supabase
+  const { data: shares } = await admin
     .from("shared_assessments")
     .select("id, expires_at")
     .eq("user_id", studentId)
@@ -85,8 +98,7 @@ export async function counselorHasStudentAccess(
   );
   if (hasShare) return true;
 
-  // Student pernah tanya di pool questions → semua counselor boleh lihat profilnya
-  const { data: questions } = await supabase
+  const { data: questions } = await admin
     .from("counselor_questions")
     .select("id")
     .eq("student_id", studentId)
