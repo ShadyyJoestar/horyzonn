@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { CounselorReplyForm } from "@/components/counselor/reply-form";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,7 +23,11 @@ type Props = {
 
 function statusBadge(status: string) {
   if (status === "answered") {
-    return <Badge className="bg-emerald-600/15 text-emerald-700 border-0">Answered</Badge>;
+    return (
+      <Badge className="bg-emerald-600/15 text-emerald-700 border-0">
+        Answered
+      </Badge>
+    );
   }
   if (status === "closed") {
     return <Badge variant="secondary">Closed</Badge>;
@@ -59,9 +64,12 @@ export default async function CounselorQuestionDetailPage({ params }: Props) {
 
   if (!question) notFound();
 
+  // Admin client: bypass RLS supaya counselor bisa baca profil student
+  const admin = createAdminClient();
+
   const [{ data: student }, { data: replies }, { data: assessments }] =
     await Promise.all([
-      supabase
+      admin
         .from("profiles")
         .select("id, full_name, email, primary_focus, role")
         .eq("id", question.student_id)
@@ -71,7 +79,7 @@ export default async function CounselorQuestionDetailPage({ params }: Props) {
         .select("id, reply, created_at, counselor_id")
         .eq("question_id", id)
         .order("created_at", { ascending: true }),
-      supabase
+      admin
         .from("assessment_results")
         .select(
           "id, readiness_score, classification, created_at, careers(name)"
@@ -84,9 +92,9 @@ export default async function CounselorQuestionDetailPage({ params }: Props) {
   const counselorIds = [
     ...new Set((replies ?? []).map((r) => r.counselor_id)),
   ];
-  let counselorMap = new Map<string, string>();
+  const counselorMap = new Map<string, string>();
   if (counselorIds.length > 0) {
-    const { data: cps } = await supabase
+    const { data: cps } = await admin
       .from("profiles")
       .select("id, full_name, email")
       .in("id", counselorIds);
@@ -144,7 +152,9 @@ export default async function CounselorQuestionDetailPage({ params }: Props) {
             variant="outline"
             size="sm"
             className="mt-2"
-            render={<Link href={`/counselor/students/${question.student_id}`} />}
+            render={
+              <Link href={`/counselor/students/${question.student_id}`} />
+            }
             nativeButton={false}
           >
             Open student page

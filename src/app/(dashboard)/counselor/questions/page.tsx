@@ -1,7 +1,8 @@
+// src/app/(dashboard)/counselor/students/page.tsx
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { Badge } from "@/components/ui/badge";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireCounselor } from "@/lib/counselor/guards";
 import {
   Card,
   CardContent,
@@ -9,131 +10,101 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GraduationCap } from "lucide-react";
 
-export const metadata = {
-  title: "Student questions · Horyzon",
-};
+export default async function CounselorStudentsPage() {
+  const { error, ctx } = await requireCounselor();
+  if (error || !ctx) redirect("/login");
+  const { supabase, user } = ctx;
 
-type QuestionRow = {
-  id: string;
-  student_id: string;
-  subject: string | null;
-  question: string;
-  status: string;
-  created_at: string;
-};
+  // Dari share assessment
+  const { data: shares } = await supabase
+    .from("shared_assessments")
+    .select("user_id, created_at")
+    .eq("counselor_id", user.id)
+    .is("revoked_at", null);
 
-function statusBadge(status: string) {
-  if (status === "answered") {
-    return <Badge className="bg-emerald-600/15 text-emerald-700 border-0">Answered</Badge>;
-  }
-  if (status === "closed") {
-    return <Badge variant="secondary">Closed</Badge>;
-  }
-  return <Badge variant="outline">Open</Badge>;
-}
-
-export default async function CounselorQuestionsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const role = profile?.role ?? "student";
-  if (role !== "counselor" && role !== "admin") {
-    redirect("/dashboard");
-  }
-
-  const { data: questions, error } = await supabase
+  // Dari pertanyaan pool
+  const { data: questions } = await supabase
     .from("counselor_questions")
-    .select("id, student_id, subject, question, status, created_at")
-    .order("created_at", { ascending: false })
-    .limit(100);
+    .select("student_id, created_at");
 
-  const safeQuestions = (questions ?? []) as QuestionRow[];
+  const shareIds = (shares ?? []).map((s) => s.user_id).filter(Boolean);
+  const questionIds = (questions ?? [])
+    .map((q) => q.student_id)
+    .filter(Boolean);
 
-  const studentIds = [...new Set(safeQuestions.map((q) => q.student_id))];
-  let studentMap = new Map<
-    string,
-    { full_name: string | null; email: string | null }
-  >();
+  const ids = [...new Set([...shareIds, ...questionIds])];
 
-  if (studentIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name, email")
-      .in("id", studentIds);
-
-    for (const p of profiles ?? []) {
-      studentMap.set(p.id, {
-        full_name: p.full_name,
-        email: p.email,
-      });
-    }
+  if (ids.length === 0) {
+    return (
+      <div className="max-w-3xl">
+        <h2 className="text-2xl font-semibold tracking-tight">Students</h2>
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="text-base">Belum ada siswa</CardTitle>
+            <CardDescription>
+              Siswa yang share assessment ke kamu, atau yang mengirim
+              pertanyaan, akan muncul di sini.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
   }
+
+  const admin = createAdminClient();
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, full_name, email, primary_focus")
+    .in("id", ids);
+
+  const rows = (profiles ?? []).map((p) => ({
+    ...p,
+    shareCount: (shares ?? []).filter((s) => s.user_id === p.id).length,
+    questionCount: (questions ?? []).filter((q) => q.student_id === p.id)
+      .length,
+  }));
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Student questions
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Pertanyaan dari siswa (tanpa pilih counselor). Buka untuk lihat
-          profil & jawab.
-        </p>
-      </div>
+    <div className="space-y-6 max-w-4xl">
+      <h2 className="text-2xl font-semibold tracking-tight">Students</h2>
 
-      {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          Gagal memuat: {error.message}. Pastikan migration
-          <code className="mx-1">counselor_questions</code> sudah dijalankan.
-        </div>
-      )}
-
-      {safeQuestions.length === 0 && !error && (
-        <p className="text-sm text-muted-foreground">
-          Belum ada pertanyaan dari siswa.
-        </p>
-      )}
-
-      <div className="space-y-3">
-        {safeQuestions.map((q) => {
-          const student = studentMap.get(q.student_id);
-          return (
-            <Link key={q.id} href={`/counselor/questions/${q.id}`}>
-              <Card className="hover:bg-muted/40 transition-colors cursor-pointer">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-base">
-                        {q.subject || "Tanpa subject"}
-                      </CardTitle>
-                      <CardDescription>
-                        {student?.full_name || student?.email || "Student"} ·{" "}
-                        {new Date(q.created_at).toLocaleString("id-ID")}
-                      </CardDescription>
-                    </div>
-                    {statusBadge(q.status)}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {q.question}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {rows.map((p) => (
+          <Card key={p.id}>
+            <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <GraduationCap className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <CardTitle className="text-base truncate">
+                  {p.full_name || "Student"}
+                </CardTitle>
+                <CardDescription className="truncate">
+                  {p.email}
+                  {p.shareCount > 0
+                    ? ` · ${p.shareCount} shared`
+                    : ""}
+                  {p.questionCount > 0
+                    ? ` · ${p.questionCount} question${p.questionCount > 1 ? "s" : ""}`
+                    : ""}
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button
+                size="sm"
+                variant="outline"
+                render={<Link href={`/counselor/students/${p.id}`} />}
+                nativeButton={false}
+              >
+                View profile
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
