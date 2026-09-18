@@ -1,9 +1,8 @@
-// src/app/(dashboard)/admin/rules/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Settings, Info } from "lucide-react";
+import { RuleEditDialog } from "@/components/admin/rule-edit-dialog";
 
 export default async function AdminRulesPage() {
   const supabase = await createClient();
@@ -28,13 +27,7 @@ export default async function AdminRulesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <Header />
-        <Button size="sm" variant="outline" disabled>
-          <Settings className="h-3.5 w-3.5 mr-1.5" />
-          Edit thresholds
-        </Button>
-      </div>
+      <Header />
 
       <Card className="border-blue-500/20 bg-blue-500/5">
         <CardContent className="flex gap-3 py-4 text-sm">
@@ -44,8 +37,8 @@ export default async function AdminRulesPage() {
               Configurable classification engine
             </p>
             <p>
-              Thresholds below drive readiness levels. Changing them affects{" "}
-              <strong>future</strong> assessments only — existing records stay historical.
+              Ubah threshold di sini. Perubahan hanya memengaruhi{" "}
+              <strong>assessment berikutnya</strong> — history tetap utuh.
             </p>
           </div>
         </CardContent>
@@ -57,9 +50,14 @@ export default async function AdminRulesPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-base">{rule.name}</CardTitle>
-                <Badge variant="outline" className="font-mono text-xs">
-                  rule
-                </Badge>
+                <RuleEditDialog
+                  rule={{
+                    id: rule.id,
+                    name: rule.name,
+                    value: rule.value,
+                    description: rule.description,
+                  }}
+                />
               </div>
             </CardHeader>
             <CardContent>
@@ -78,8 +76,9 @@ export default async function AdminRulesPage() {
             <Settings className="h-10 w-10 text-muted-foreground mb-3" />
             <p className="font-medium">No classification rules found</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-              Seed the <code className="text-xs">classification_rules</code> table
-              so thresholds can be managed from here.
+              Seed tabel <code className="text-xs">classification_rules</code>{" "}
+              dulu (nama contoh: career_ready_threshold, ready_with_gaps_threshold,
+              developing_threshold).
             </p>
           </CardContent>
         </Card>
@@ -103,9 +102,11 @@ export default async function AdminRulesPage() {
 function Header() {
   return (
     <div>
-      <h2 className="text-2xl font-semibold tracking-tight">Classification Rules</h2>
+      <h2 className="text-2xl font-semibold tracking-tight">
+        Classification Rules
+      </h2>
       <p className="text-muted-foreground mt-1">
-        Thresholds used by the classification engine — change without code deploy.
+        Thresholds dipakai classification engine — ubah tanpa deploy ulang.
       </p>
     </div>
   );

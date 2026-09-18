@@ -1,9 +1,8 @@
-// src/app/(dashboard)/admin/competencies/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Brain, Plus } from "lucide-react";
+import { Brain } from "lucide-react";
+import { CompetencyFormDialog } from "@/components/admin/competency-form-dialog";
 
 export default async function AdminCompetenciesPage() {
   const supabase = await createClient();
@@ -43,10 +42,7 @@ export default async function AdminCompetenciesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <Header />
-        <Button size="sm" disabled>
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Add competency
-        </Button>
+        <CompetencyFormDialog mode="create" />
       </div>
 
       <div className="flex flex-wrap gap-3 text-sm">
@@ -78,9 +74,7 @@ export default async function AdminCompetenciesPage() {
                           {item.name}
                         </CardTitle>
                       </div>
-                      <Badge variant="outline" className="shrink-0 text-xs">
-                        {item.category}
-                      </Badge>
+                      <CompetencyFormDialog mode="edit" competency={item} />
                     </div>
                   </CardHeader>
                   <CardContent className="pl-12">
@@ -99,12 +93,10 @@ export default async function AdminCompetenciesPage() {
 
       {(!competencies || competencies.length === 0) && (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Brain className="h-10 w-10 text-muted-foreground mb-3" />
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
+            <Brain className="h-10 w-10 text-muted-foreground" />
             <p className="font-medium">No competencies yet</p>
-            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-              Seed the competencies table. Classification engine depends on this master list.
-            </p>
+            <CompetencyFormDialog mode="create" />
           </CardContent>
         </Card>
       )}

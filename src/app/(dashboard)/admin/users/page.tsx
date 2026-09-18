@@ -1,9 +1,8 @@
-// src/app/(dashboard)/admin/users/page.tsx
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Users, Shield, UserCog } from "lucide-react";
+import { Users, Shield } from "lucide-react";
+import { RoleSelect } from "@/components/admin/role-select";
 
 export default async function AdminUsersPage() {
   const supabase = createAdminClient();
@@ -26,12 +25,6 @@ export default async function AdminUsersPage() {
     );
   }
 
-  const roleColor = {
-    admin: "default",
-    counselor: "secondary",
-    student: "outline",
-  } as const;
-
   const counts = {
     admin: users?.filter((u) => u.role === "admin").length ?? 0,
     counselor: users?.filter((u) => u.role === "counselor").length ?? 0,
@@ -40,13 +33,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <Header />
-        <Button size="sm" variant="outline" disabled>
-          <UserCog className="h-3.5 w-3.5 mr-1.5" />
-          Manage roles
-        </Button>
-      </div>
+      <Header />
 
       <div className="flex flex-wrap gap-3 text-sm">
         <Badge variant="secondary">{users?.length ?? 0} total</Badge>
@@ -61,7 +48,9 @@ export default async function AdminUsersPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                  {(user.full_name || user.email || "?").charAt(0).toUpperCase()}
+                  {(user.full_name || user.email || "?")
+                    .charAt(0)
+                    .toUpperCase()}
                 </div>
                 <div>
                   <CardTitle className="text-base">
@@ -70,13 +59,12 @@ export default async function AdminUsersPage() {
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                 </div>
               </div>
-              <Badge
-                variant={roleColor[user.role as keyof typeof roleColor] || "outline"}
-                className="gap-1 capitalize"
-              >
-                {user.role === "admin" && <Shield className="h-3 w-3" />}
-                {user.role}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {user.role === "admin" && (
+                  <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+                <RoleSelect userId={user.id} currentRole={user.role} />
+              </div>
             </CardHeader>
             <CardContent className="pl-12">
               <p className="text-xs text-muted-foreground">
@@ -99,9 +87,6 @@ export default async function AdminUsersPage() {
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Users className="h-10 w-10 text-muted-foreground mb-3" />
             <p className="font-medium">No users found</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Accounts will appear here after registration.
-            </p>
           </CardContent>
         </Card>
       )}
@@ -114,7 +99,7 @@ function Header() {
     <div>
       <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
       <p className="text-muted-foreground mt-1">
-        Platform accounts and role distribution (student / counselor / admin).
+        Manage platform roles: student / counselor / admin.
       </p>
     </div>
   );

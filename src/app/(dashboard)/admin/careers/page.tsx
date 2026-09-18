@@ -1,9 +1,9 @@
-// src/app/(dashboard)/admin/careers/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Briefcase, Plus, Search } from "lucide-react";
+import { Briefcase } from "lucide-react";
+import { CareerFormDialog } from "@/components/admin/career-form-dialog";
+import { ToggleCareerActive } from "@/components/admin/toggle-career-active";
 
 export default async function AdminCareersPage() {
   const supabase = await createClient();
@@ -33,16 +33,7 @@ export default async function AdminCareersPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <Header />
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" disabled>
-            <Search className="h-3.5 w-3.5 mr-1.5" />
-            Filter
-          </Button>
-          <Button size="sm" disabled>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Add career
-          </Button>
-        </div>
+        <CareerFormDialog mode="create" />
       </div>
 
       <div className="flex flex-wrap gap-3 text-sm">
@@ -72,16 +63,14 @@ export default async function AdminCareersPage() {
                 {career.is_active ? "Active" : "Inactive"}
               </Badge>
             </CardHeader>
-            <CardContent className="pl-[3.75rem]">
+            <CardContent className="pl-[3.75rem] space-y-3">
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {career.description || "No description yet."}
               </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                Created{" "}
-                {career.created_at
-                  ? new Date(career.created_at).toLocaleDateString("id-ID")
-                  : "—"}
-              </p>
+              <div className="flex flex-wrap gap-2">
+                <CareerFormDialog mode="edit" career={career} />
+                <ToggleCareerActive id={career.id} isActive={!!career.is_active} />
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -89,12 +78,13 @@ export default async function AdminCareersPage() {
 
       {(!careers || careers.length === 0) && (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Briefcase className="h-10 w-10 text-muted-foreground mb-3" />
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
+            <Briefcase className="h-10 w-10 text-muted-foreground" />
             <p className="font-medium">No careers in library</p>
-            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-              Seed the careers table so students can run assessments against real requirements.
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Tambah career pertama supaya student bisa menjalankan assessment.
             </p>
+            <CareerFormDialog mode="create" />
           </CardContent>
         </Card>
       )}
@@ -107,7 +97,7 @@ function Header() {
     <div>
       <h2 className="text-2xl font-semibold tracking-tight">Careers</h2>
       <p className="text-muted-foreground mt-1">
-        Manage career library, competency requirements, and visibility.
+        Manage career library, visibility, and metadata.
       </p>
     </div>
   );
