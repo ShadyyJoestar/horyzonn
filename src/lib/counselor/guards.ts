@@ -12,28 +12,34 @@ export type CounselorCtx = {
 export async function requireCounselor(): Promise<
   { error: string; ctx: null } | { error: null; ctx: CounselorCtx }
 > {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) return { error: "Unauthorized — silakan login ulang", ctx: null };
+    if (!user) {
+      return { error: "Unauthorized — silakan login ulang", ctx: null };
+    }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  const role = profile?.role ?? "student";
-  if (!["counselor", "mentor", "admin"].includes(role)) {
-    return { error: "Forbidden — khusus counselor/mentor", ctx: null };
+    const role = profile?.role ?? "student";
+    if (!["counselor", "mentor", "admin"].includes(role)) {
+      return { error: "Forbidden — khusus counselor/mentor", ctx: null };
+    }
+
+    return { error: null, ctx: { user, supabase, role } };
+  } catch (e) {
+    console.error("[requireCounselor]", e);
+    return { error: "Auth check failed", ctx: null };
   }
-
-  return { error: null, ctx: { user, supabase, role } };
 }
 
-/** Cek: apakah counselor ini punya share aktif yang diarahkan ke dia untuk assessment ini? */
 export async function counselorHasAccess(
   supabase: SupabaseClient,
   assessmentId: string,
@@ -52,7 +58,6 @@ export async function counselorHasAccess(
   );
 }
 
-/** Cek: student ini pernah share (aktif) ke counselor ini? */
 export async function counselorHasStudentAccess(
   supabase: SupabaseClient,
   studentId: string,

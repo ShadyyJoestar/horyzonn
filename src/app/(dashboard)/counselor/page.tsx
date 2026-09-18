@@ -1,7 +1,6 @@
 // src/app/(dashboard)/counselor/page.tsx
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { requireCounselor } from "@/lib/counselor/guards";
 import {
   Card,
@@ -10,77 +9,121 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ClassificationBadge } from "@/components/assessment/classification-badge";
 import { Users, FileText, MessageSquare, BarChart3 } from "lucide-react";
 
 type ShareRow = {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  assessment_id: string;
   message: string | null;
   created_at: string;
   expires_at: string | null;
-  assessment_results:
-    | {
-        readiness_score: number;
-        classification: string;
-        created_at: string;
-        careers: { name: string } | { name: string }[] | null;
-      }
-    | {
-        readiness_score: number;
-        classification: string;
-        created_at: string;
-        careers: { name: string }[] | null;
-      }[]
-    | null;
+  share_token: string | null;
+  token: string | null;
+};
+
+type AssessmentRow = {
+  id: string;
+  readiness_score: number;
+  classification: string;
+  career_id: string;
+  created_at: string;
 };
 
 export default async function CounselorDashboardPage() {
-  const { error, ctx } = await requireCounselor();
-  if (error || !ctx) redirect("/login");
-  const { supabase, user } = ctx;
+  const result = await requireCounselor();
+  if (result.error || !result.ctx) redirect("/login");
+  const { supabase, user } = result.ctx;
 
-  const { data: rawShares } = await supabase
+  // 1) Ambil shares — TANPA nested join (sering bikin PostgREST error)
+  const { data: rawShares, error: sharesError } = await supabase
     .from("shared_assessments")
     .select(
-      "id, user_id, message, created_at, expires_at, assessment_results(readiness_score, classification, created_at, careers(name))"
+      "id, user_id, assessment_id, message, created_at, expires_at, share_token, token"
     )
     .eq("counselor_id", user.id)
     .is("revoked_at", null)
     .order("created_at", { ascending: false });
 
+  if (sharesError) {
+    console.error("[counselor] shared_assessments error:", sharesError.message);
+  }
+
   const now = new Date();
-  const shares = ((rawShares ?? []) as unknown as ShareRow[]).filter(
+  const shares = ((rawShares ?? []) as ShareRow[]).filter(
     (s) => !s.expires_at || new Date(s.expires_at) > now
   );
 
-  const studentIds = [...new Set(shares.map((s) => s.user_id))];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name, email")
-    .in("id", studentIds.length ? studentIds : ["00000000-0000-0000-0000-000000000000"]);
+  // 2) Assessment results (batch)
+  const assessmentIds = [
+    ...new Set(shares.map((s) => s.assessment_id).filter(Boolean)),
+  ];
+  let assessments: AssessmentRow[] = [];
+  let careerMap: Record<string, string> = {};
 
-  const nameOf = (id: string) => {
+  if (assessmentIds.length > 0) {
+    const { data: arData, error: arError } = await supabase
+      .from("assessment_results")
+      .select("id, readiness_score, classification, career_id, created_at")
+      .in("id", assessmentIds);
+
+    if (arError) {
+      console.error("[counselor] assessment_results error:", arError.message);
+    } else {
+      assessments = (arData ?? []) as AssessmentRow[];
+    }
+
+    const careerIds = [
+      ...new Set(assessments.map((a) => a.career_id).filter(Boolean)),
+    ];
+    if (careerIds.length > 0) {
+      const { data: careers } = await supabase
+        .from("careers")
+        .select("id, name")
+        .in("id", careerIds);
+      for (const c of careers ?? []) {
+        careerMap[c.id] = c.name;
+      }
+    }
+  }
+
+  const assessmentById = Object.fromEntries(
+    assessments.map((a) => [a.id, a])
+  );
+
+  // 3) Student profiles
+  const studentIds = [
+    ...new Set(
+      shares.map((s) => s.user_id).filter((id): id is string => Boolean(id))
+    ),
+  ];
+  const { data: profiles } = studentIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", studentIds)
+    : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
+
+  const nameOf = (id: string | null) => {
+    if (!id) return "Student";
     const p = (profiles ?? []).find((x) => x.id === id);
     return p?.full_name || p?.email || "Student";
   };
 
+  // 4) Notes count
   const { count: notesCount } = await supabase
     .from("counselor_notes")
     .select("id", { count: "exact", head: true })
     .eq("author_id", user.id);
 
   const readinessList = shares
-    .map((s) => {
-      const ar = Array.isArray(s.assessment_results)
-        ? s.assessment_results[0]
-        : s.assessment_results;
-      return ar ? Number(ar.readiness_score) : null;
-    })
-    .filter((v): v is number => v != null);
+    .map((s) => assessmentById[s.assessment_id]?.readiness_score)
+    .filter((v): v is number => typeof v === "number");
   const avgReadiness = readinessList.length
-    ? Math.round(readinessList.reduce((a, b) => a + b, 0) / readinessList.length)
+    ? Math.round(
+        readinessList.reduce((a, b) => a + b, 0) / readinessList.length
+      )
     : null;
 
   const stats = [
@@ -99,6 +142,13 @@ export default async function CounselorDashboardPage() {
           analysis, kasih catatan, dan susun development plan.
         </p>
       </div>
+
+      {sharesError && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+          Gagal memuat shares: {sharesError.message}. Cek RLS / schema{" "}
+          <code className="text-xs">shared_assessments</code>.
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
@@ -121,26 +171,21 @@ export default async function CounselorDashboardPage() {
           <CardTitle className="text-base">Shared assessments</CardTitle>
           <CardDescription>
             {shares.length
-              ? "Klik baris untuk membuka detail assessment."
+              ? "Klik Open untuk membuka detail assessment."
               : "Belum ada siswa yang share assessment ke kamu."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {shares.length === 0 && (
+          {shares.length === 0 && !sharesError && (
             <p className="text-sm text-muted-foreground">
               Share link dibuat siswa dari halaman assessment mereka dengan
               memasukkan email kamu.
             </p>
           )}
           {shares.map((s) => {
-            const ar = Array.isArray(s.assessment_results)
-              ? s.assessment_results[0]
-              : s.assessment_results;
-            const career = ar?.careers
-              ? Array.isArray(ar.careers)
-                ? ar.careers[0]
-                : ar.careers
-              : null;
+            const ar = assessmentById[s.assessment_id];
+            const careerName = ar ? careerMap[ar.career_id] : null;
+            const token = s.share_token || s.token || "";
             return (
               <div
                 key={s.id}
@@ -151,12 +196,13 @@ export default async function CounselorDashboardPage() {
                     {nameOf(s.user_id)}
                     <span className="text-muted-foreground font-normal">
                       {" "}
-                      → {career?.name || "Assessment"}
+                      → {careerName || "Assessment"}
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Shared {new Date(s.created_at).toLocaleDateString("en-US")}
-                    {ar && ` · Readiness ${Math.round(Number(ar.readiness_score))}/100`}
+                    {ar &&
+                      ` · Readiness ${Math.round(Number(ar.readiness_score))}/100`}
                   </p>
                   {s.message && (
                     <p className="text-xs italic text-muted-foreground">
@@ -168,18 +214,18 @@ export default async function CounselorDashboardPage() {
                   {ar && (
                     <ClassificationBadge classification={ar.classification} />
                   )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    render={
-                      <Link
-                        href={`/counselor/shared/${"token" in s ? (s as { token?: string }).token : ""}`}
-                      />
-                    }
-                    nativeButton={false}
-                  >
-                    Open
-                  </Button>
+                  {token ? (
+                    <Link
+                      href={`/counselor/shared/${token}`}
+                      className="inline-flex h-7 items-center rounded-lg border border-border px-2.5 text-[0.8rem] font-medium hover:bg-muted transition-colors"
+                    >
+                      Open
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      No token
+                    </span>
+                  )}
                 </div>
               </div>
             );
