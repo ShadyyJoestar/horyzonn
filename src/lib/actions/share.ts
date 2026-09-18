@@ -1,4 +1,3 @@
-// src/lib/actions/share.ts
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
@@ -9,10 +8,14 @@ export async function createShareLink(
   assessmentId: string
 ): Promise<{ token?: string; error?: string }> {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized" };
+
+  if (!user) {
+    return { error: "Unauthorized" };
+  }
 
   // Pastikan assessment ini milik user
   const { data: assessment } = await supabase
@@ -22,7 +25,9 @@ export async function createShareLink(
     .eq("user_id", user.id)
     .single();
 
-  if (!assessment) return { error: "Assessment not found" };
+  if (!assessment) {
+    return { error: "Assessment not found" };
+  }
 
   // Reuse link aktif kalau masih ada
   const { data: existing } = await supabase
@@ -32,45 +37,121 @@ export async function createShareLink(
     .is("revoked_at", null)
     .maybeSingle();
 
-  if (existing?.token) return { token: existing.token };
+  if (existing?.token) {
+    return { token: existing.token };
+  }
 
   const token = randomBytes(16).toString("hex");
-  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 hari
 
-  const { error } = await supabase.from("shared_assessments").insert({
-    user_id: user.id,
-    assessment_id: assessmentId,
-    token,
-    expires_at: expires.toISOString(),
-  });
+  const expires = new Date(
+    Date.now() + 30 * 24 * 60 * 60 * 1000
+  );
 
-  if (error) return { error: error.message };
+  const { error } = await supabase
+    .from("shared_assessments")
+    .insert({
+      user_id: user.id,
+      assessment_id: assessmentId,
+      token,
+      expires_at: expires.toISOString(),
+    });
+
+  if (error) {
+    return { error: error.message };
+  }
+
   revalidatePath(`/dashboard/assessment/${assessmentId}`);
+  revalidatePath("/dashboard/share");
+
   return { token };
+}
+
+export async function revokeShareById(
+  shareId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Unauthorized" };
+  }
+
+  const { data: share, error: lookupError } = await supabase
+    .from("shared_assessments")
+    .select("id, assessment_id")
+    .eq("id", shareId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (lookupError) {
+    return { error: lookupError.message };
+  }
+
+  if (!share) {
+    return { error: "Share not found" };
+  }
+
+  const { error } = await supabase
+    .from("shared_assessments")
+    .update({
+      revoked_at: new Date().toISOString(),
+    })
+    .eq("id", shareId)
+    .eq("user_id", user.id)
+    .is("revoked_at", null);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath("/dashboard/share");
+
+  revalidatePath(
+    `/dashboard/assessment/${share.assessment_id}`
+  );
+
+  return {};
 }
 
 export async function revokeShareLink(
   assessmentId: string
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized" };
+
+  if (!user) {
+    return { error: "Unauthorized" };
+  }
 
   const { error } = await supabase
     .from("shared_assessments")
-    .update({ revoked_at: new Date().toISOString() })
+    .update({
+      revoked_at: new Date().toISOString(),
+    })
     .eq("assessment_id", assessmentId)
     .eq("user_id", user.id)
     .is("revoked_at", null);
 
-  if (error) return { error: error.message };
-  revalidatePath(`/dashboard/assessment/${assessmentId}`);
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath(
+    `/dashboard/assessment/${assessmentId}`
+  );
+
+  revalidatePath("/dashboard/share");
+
   return {};
 }
 
-// ─── DIRECTED SHARE KE COUNSELOR (tambahan counselor module) ───
+// ─── DIRECTED SHARE KE COUNSELOR ────────────────────────
 
 export async function shareAssessmentWithCounselor(input: {
   assessmentId: string;
@@ -78,10 +159,14 @@ export async function shareAssessmentWithCounselor(input: {
   message?: string;
 }): Promise<{ token?: string; error?: string }> {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized" };
+
+  if (!user) {
+    return { error: "Unauthorized" };
+  }
 
   // Assessment harus milik user ini
   const { data: assessment } = await supabase
@@ -90,11 +175,21 @@ export async function shareAssessmentWithCounselor(input: {
     .eq("id", input.assessmentId)
     .eq("user_id", user.id)
     .single();
-  if (!assessment) return { error: "Assessment not found" };
+
+  if (!assessment) {
+    return { error: "Assessment not found" };
+  }
 
   // Resolve counselor by email
-  const email = input.counselorEmail?.trim().toLowerCase();
-  if (!email) return { error: "Email counselor wajib diisi" };
+  const email = input.counselorEmail
+    ?.trim()
+    .toLowerCase();
+
+  if (!email) {
+    return {
+      error: "Email counselor wajib diisi",
+    };
+  }
 
   const { data: counselor } = await supabase
     .from("profiles")
@@ -102,15 +197,29 @@ export async function shareAssessmentWithCounselor(input: {
     .ilike("email", email)
     .maybeSingle();
 
-  if (!counselor) return { error: "User dengan email itu tidak ditemukan" };
-  if (!["counselor", "mentor", "admin"].includes(counselor.role)) {
-    return { error: "User itu bukan counselor/mentor" };
-  }
-  if (counselor.id === user.id) {
-    return { error: "Kamu tidak bisa share ke diri sendiri" };
+  if (!counselor) {
+    return {
+      error: "User dengan email itu tidak ditemukan",
+    };
   }
 
-  // Reuse link aktif yang sudah diarahkan ke counselor yang sama
+  if (
+    !["counselor", "mentor", "admin"].includes(
+      counselor.role
+    )
+  ) {
+    return {
+      error: "User itu bukan counselor/mentor",
+    };
+  }
+
+  if (counselor.id === user.id) {
+    return {
+      error: "Kamu tidak bisa share ke diri sendiri",
+    };
+  }
+
+  // Reuse link aktif untuk counselor yang sama
   const { data: existing } = await supabase
     .from("shared_assessments")
     .select("token")
@@ -119,21 +228,38 @@ export async function shareAssessmentWithCounselor(input: {
     .is("revoked_at", null)
     .maybeSingle();
 
-  if (existing?.token) return { token: existing.token };
+  if (existing?.token) {
+    return {
+      token: existing.token,
+    };
+  }
 
   const token = randomBytes(16).toString("hex");
-  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-  const { error } = await supabase.from("shared_assessments").insert({
-    user_id: user.id,
-    assessment_id: input.assessmentId,
-    token,
-    counselor_id: counselor.id,
-    message: input.message?.trim() || null,
-    expires_at: expires.toISOString(),
-  });
+  const expires = new Date(
+    Date.now() + 30 * 24 * 60 * 60 * 1000
+  );
 
-  if (error) return { error: error.message };
-  revalidatePath(`/dashboard/assessment/${input.assessmentId}`);
+  const { error } = await supabase
+    .from("shared_assessments")
+    .insert({
+      user_id: user.id,
+      assessment_id: input.assessmentId,
+      token,
+      counselor_id: counselor.id,
+      message: input.message?.trim() || null,
+      expires_at: expires.toISOString(),
+    });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath(
+    `/dashboard/assessment/${input.assessmentId}`
+  );
+
+  revalidatePath("/dashboard/share");
+
   return { token };
 }
