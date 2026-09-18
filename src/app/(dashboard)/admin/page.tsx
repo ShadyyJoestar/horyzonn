@@ -1,4 +1,3 @@
-// src/app/(dashboard)/admin/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +11,7 @@ import {
   BarChart3,
   ArrowRight,
   Shield,
+  ScrollText,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -30,7 +30,10 @@ export default async function AdminOverviewPage() {
       supabase.from("careers").select("*", { count: "exact", head: true }),
       supabase.from("competencies").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }),
-      supabase.from("assessments").select("*", { count: "exact", head: true }),
+      // FIX: tabel asli = assessment_results (bukan assessments)
+      supabaseAdmin
+        .from("assessment_results")
+        .select("*", { count: "exact", head: true }),
     ]);
 
     careersCount = results[0].count ?? 0;
@@ -41,7 +44,8 @@ export default async function AdminOverviewPage() {
     const firstError = results.find((r) => r.error)?.error;
     if (firstError) loadError = firstError.message;
   } catch (e) {
-    loadError = e instanceof Error ? e.message : "Failed to load platform stats";
+    loadError =
+      e instanceof Error ? e.message : "Failed to load platform stats";
   }
 
   const stats = [
@@ -70,7 +74,7 @@ export default async function AdminOverviewPage() {
       title: "Assessments",
       value: assessmentsCount,
       icon: FileText,
-      href: "/admin/analytics",
+      href: "/admin/assessments",
       description: "Classification records",
     },
   ];
@@ -78,7 +82,8 @@ export default async function AdminOverviewPage() {
   const managementAreas = [
     {
       title: "Career Library",
-      description: "Add, edit, or deactivate careers and their competency weights.",
+      description:
+        "Add, edit, or deactivate careers and their competency weights.",
       href: "/admin/careers",
       icon: Briefcase,
     },
@@ -101,10 +106,22 @@ export default async function AdminOverviewPage() {
       icon: Users,
     },
     {
+      title: "Assessment Records",
+      description: "Browse classification runs across the platform.",
+      href: "/admin/assessments",
+      icon: FileText,
+    },
+    {
       title: "Platform Analytics",
       description: "See classification distribution and average readiness.",
       href: "/admin/analytics",
       icon: BarChart3,
+    },
+    {
+      title: "Audit Log",
+      description: "Track changes to rules, weights, roles, and catalog data.",
+      href: "/admin/audit",
+      icon: ScrollText,
     },
   ];
 
@@ -143,7 +160,9 @@ export default async function AdminOverviewPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stat.description}
+                </p>
               </CardContent>
             </Card>
           </Link>
@@ -189,11 +208,15 @@ export default async function AdminOverviewPage() {
           </div>
           <div className="flex items-center justify-between rounded-lg border px-3 py-2">
             <span className="text-muted-foreground">Database</span>
-            <Badge className="bg-emerald-600 hover:bg-emerald-600">Connected</Badge>
+            <Badge className="bg-emerald-600 hover:bg-emerald-600">
+              Connected
+            </Badge>
           </div>
           <div className="flex items-center justify-between rounded-lg border px-3 py-2">
             <span className="text-muted-foreground">Auth & RLS</span>
-            <Badge className="bg-emerald-600 hover:bg-emerald-600">Running</Badge>
+            <Badge className="bg-emerald-600 hover:bg-emerald-600">
+              Running
+            </Badge>
           </div>
         </CardContent>
       </Card>

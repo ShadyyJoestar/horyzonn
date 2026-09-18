@@ -1,15 +1,22 @@
-// src/app/(dashboard)/admin/analytics/page.tsx
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart3 } from "lucide-react";
 
 export default async function AdminAnalyticsPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
-  const { data: assessments, error } = await supabase
-    .from("assessments")
-    .select("classification, readiness_score");
+  const [
+    { data: assessments, error },
+    { count: usersCount },
+    { count: careersCount },
+  ] = await Promise.all([
+    supabase
+      .from("assessment_results")
+      .select("classification, readiness_score, confidence, created_at, career_id"),
+    supabase.from("profiles").select("*", { count: "exact", head: true }),
+    supabase.from("careers").select("*", { count: "exact", head: true }),
+  ]);
 
   if (error) {
     return (
@@ -24,7 +31,7 @@ export default async function AdminAnalyticsPage() {
     );
   }
 
-  const distribution = {
+  const distribution: Record<string, number> = {
     EXPLORING: 0,
     DEVELOPING: 0,
     READY_WITH_GAPS: 0,
@@ -32,61 +39,48 @@ export default async function AdminAnalyticsPage() {
   };
 
   let totalScore = 0;
+  let totalConfidence = 0;
 
   assessments?.forEach((a) => {
-    if (a.classification in distribution) {
-      distribution[a.classification as keyof typeof distribution]++;
-    }
+    const key = a.classification as string;
+    if (key in distribution) distribution[key] += 1;
     totalScore += Number(a.readiness_score) || 0;
+    totalConfidence += Number(a.confidence) || 0;
   });
 
   const total = assessments?.length || 0;
   const avgScore = total > 0 ? Math.round(totalScore / total) : 0;
+  const avgConfidence = total > 0 ? Math.round(totalConfidence / total) : 0;
   const mostCommon =
     Object.entries(distribution).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+
+  // assessments 7 hari terakhir
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentCount =
+    assessments?.filter((a) =>
+      a.created_at ? new Date(a.created_at).getTime() >= weekAgo : false
+    ).length ?? 0;
 
   return (
     <div className="space-y-6">
       <Header />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Assessments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold tabular-nums">{total}</div>
-            <p className="text-xs text-muted-foreground mt-1">All classification runs</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total Assessments" value={total} hint="All runs" />
+        <StatCard title="Avg Readiness" value={avgScore} hint="out of 100" />
+        <StatCard title="Avg Confidence" value={avgConfidence} hint="model confidence" />
+        <StatCard title="Last 7 days" value={recentCount} hint="new assessments" />
+      </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Average Readiness
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold tabular-nums">{avgScore}</div>
-            <p className="text-xs text-muted-foreground mt-1">out of 100</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Most Common Level
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold">
-              {mostCommon === "—" ? "—" : mostCommon.replaceAll("_", " ")}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">by count</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard title="Users" value={usersCount ?? 0} hint="profiles" />
+        <StatCard title="Careers" value={careersCount ?? 0} hint="in library" />
+        <StatCard
+          title="Most common level"
+          value={mostCommon === "—" ? "—" : mostCommon.replaceAll("_", " ")}
+          hint="by count"
+          largeText
+        />
       </div>
 
       <Card>
@@ -100,7 +94,7 @@ export default async function AdminAnalyticsPage() {
               <BarChart3 className="h-10 w-10 text-muted-foreground mb-3" />
               <p className="font-medium">No assessment data yet</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Distribution will appear after students run assessments.
+                Distribution appears after students run assessments.
               </p>
             </div>
           ) : (
@@ -109,9 +103,7 @@ export default async function AdminAnalyticsPage() {
               return (
                 <div key={level}>
                   <div className="flex justify-between text-sm mb-1.5">
-                    <span className="font-medium">
-                      {level.replaceAll("_", " ")}
-                    </span>
+                    <span className="font-medium">{level.replaceAll("_", " ")}</span>
                     <span className="text-muted-foreground tabular-nums">
                       {count} ({percentage}%)
                     </span>
@@ -137,8 +129,42 @@ function Header() {
     <div>
       <h2 className="text-2xl font-semibold tracking-tight">Analytics</h2>
       <p className="text-muted-foreground mt-1">
-        Platform usage and classification distribution across all assessments.
+        Platform usage and classification distribution.
       </p>
     </div>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  hint,
+  largeText,
+}: {
+  title: string;
+  value: string | number;
+  hint: string;
+  largeText?: boolean;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div
+          className={
+            largeText
+              ? "text-lg font-bold"
+              : "text-3xl font-bold tabular-nums"
+          }
+        >
+          {value}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">{hint}</p>
+      </CardContent>
+    </Card>
   );
 }

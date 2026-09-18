@@ -11,7 +11,10 @@ import {
   Users,
   Settings,
   BarChart3,
+  FileText,
+  ScrollText,
 } from "lucide-react";
+
 
 export default async function AdminLayout({
   children,
@@ -38,14 +41,17 @@ export default async function AdminLayout({
     redirect("/dashboard");
   }
 
-  const adminNav = [
-    { href: "/admin", label: "Overview", icon: LayoutDashboard },
-    { href: "/admin/careers", label: "Careers", icon: Briefcase },
-    { href: "/admin/competencies", label: "Competencies", icon: Brain },
-    { href: "/admin/users", label: "Users", icon: Users },
-    { href: "/admin/rules", label: "Rules", icon: Settings },
-    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  ];
+const adminNav = [
+  { href: "/admin", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/careers", label: "Careers", icon: Briefcase },
+  { href: "/admin/competencies", label: "Competencies", icon: Brain },
+  { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/rules", label: "Rules", icon: Settings },
+  { href: "/admin/assessments", label: "Assessments", icon: FileText },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/audit", label: "Audit log", icon: ScrollText },
+];
+
 
   return (
     <div className="min-h-screen flex bg-background">
