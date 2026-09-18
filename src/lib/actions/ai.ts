@@ -99,15 +99,15 @@ export async function askAi(input: {
   if (!message) return { error: "Pesan tidak boleh kosong" };
   if (message.length > 2000) return { error: "Pesan maksimal 2000 karakter" };
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
   if (!apiKey) {
     return {
       error:
-        "DEEPSEEK_API_KEY belum diset di environment. Tambahkan di .env.local.",
+        "Fitur Ask AI belum aktif untuk saat ini. Coba lagi nanti, atau tanya lewat Ask counselor.",
     };
   }
 
-  const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+  const model = process.env.DEEPSEEK_MODEL?.trim() || "deepseek-chat";
   const context = await buildStudentContext(user.id);
 
   const history = (input.history ?? []).slice(-8).map((m) => ({
@@ -144,15 +144,20 @@ export async function askAi(input: {
       console.error("[askAi] DeepSeek error:", res.status, text);
 
       if (res.status === 401) {
-        return { error: "API key DeepSeek tidak valid." };
+        return {
+          error:
+            "Fitur Ask AI sementara tidak bisa digunakan. Coba lagi nanti.",
+        };
       }
       if (res.status === 402 || res.status === 429) {
         return {
           error:
-            "Kuota DeepSeek habis atau rate limited. Coba lagi nanti atau top-up di platform.deepseek.com.",
+            "Kuota AI sedang penuh atau belum tersedia. Coba lagi nanti, atau tanya lewat Ask counselor.",
         };
       }
-      return { error: `DeepSeek error (${res.status}). Coba lagi.` };
+      return {
+        error: "Gagal mendapatkan jawaban AI. Coba lagi sebentar.",
+      };
     }
 
     const data = (await res.json()) as {
@@ -160,13 +165,15 @@ export async function askAi(input: {
     };
 
     const reply = data.choices?.[0]?.message?.content?.trim();
-    if (!reply) return { error: "Tidak ada respons dari AI." };
+    if (!reply) {
+      return { error: "AI tidak mengirim jawaban. Coba lagi." };
+    }
 
     return { reply };
   } catch (e) {
     console.error("[askAi]", e);
     return {
-      error: e instanceof Error ? e.message : "Gagal menghubungi DeepSeek",
+      error: "Gagal menghubungi layanan AI. Cek koneksi atau coba lagi nanti.",
     };
   }
 }
