@@ -64,7 +64,6 @@ export default async function CounselorQuestionDetailPage({ params }: Props) {
 
   if (!question) notFound();
 
-  // Admin client: bypass RLS supaya counselor bisa baca profil student
   const admin = createAdminClient();
 
   const [{ data: student }, { data: replies }, { data: assessments }] =
@@ -220,19 +219,21 @@ export default async function CounselorQuestionDetailPage({ params }: Props) {
         </div>
       )}
 
-      {question.status !== "closed" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Your reply</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CounselorReplyForm
-              questionId={question.id}
-              status={question.status}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {/* SELALU tampil — jangan di-hide walau answered/closed */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Your reply</CardTitle>
+          <CardDescription>
+            Jawaban masuk ke dashboard student (Ask counselor).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CounselorReplyForm
+            questionId={question.id}
+            status={question.status}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

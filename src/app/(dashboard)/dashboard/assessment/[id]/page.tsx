@@ -1,5 +1,6 @@
 // src/app/(dashboard)/dashboard/assessment/[id]/page.tsx
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -59,36 +60,46 @@ export default async function AssessmentResultPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: assessment }, { data: share }] = await Promise.all([
-    supabase
-      .from("assessment_results")
-      .select("*, careers(id, name, slug)")
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .single(),
-    supabase
-      .from("shared_assessments")
-      .select("token")
-      .eq("assessment_id", id)
-      .is("revoked_at", null)
-      .maybeSingle(),
-    // NOTE: feedback check
-    supabase
-      .from("feedbacks")
-      .select("id")
-      .eq("assessment_id", id)
-      .eq("user_id", user.id)
-      .maybeSingle(),
-  ]);
-
-  const { data: existingFeedback } = await supabase
-    .from("feedbacks")
-    .select("id")
-    .eq("assessment_id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: assessment }, { data: share }, { data: existingFeedback }] =
+    await Promise.all([
+      supabase
+        .from("assessment_results")
+        .select("*, careers(id, name, slug)")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("shared_assessments")
+        .select("token")
+        .eq("assessment_id", id)
+        .is("revoked_at", null)
+        .maybeSingle(),
+      supabase
+        .from("feedbacks")
+        .select("id")
+        .eq("assessment_id", id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ]);
 
   if (!assessment) notFound();
+
+  // Admin: RLS counselor_notes / plan biasanya cuma counselor yang bisa baca
+  const admin = createAdminClient();
+  const [{ data: notes }, { data: planItems }] = await Promise.all([
+    admin
+      .from("counselor_notes")
+      .select("id, author_name, note, created_at")
+      .eq("assessment_id", id)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("development_plan_items")
+      .select(
+        "id, competency_name, current_level, target_level, action, status, due_date"
+      )
+      .eq("assessment_id", id)
+      .order("sort_order", { ascending: true }),
+  ]);
 
   const career = Array.isArray(assessment.careers)
     ? assessment.careers[0]
@@ -99,6 +110,9 @@ export default async function AssessmentResultPage({
   const actionPlan = Array.isArray(explanation.actionPlan)
     ? explanation.actionPlan
     : [];
+
+  const hasCounselorFeedback =
+    (notes?.length ?? 0) > 0 || (planItems?.length ?? 0) > 0;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -134,7 +148,7 @@ export default async function AssessmentResultPage({
           <ClassificationBadge classification={assessment.classification} />
         </div>
         <p className="text-sm text-muted-foreground">
-          {new Date(assessment.created_at).toLocaleString("en-US")} · Profile
+          {new Date(assessment.created_at).toLocaleString("id-ID")} · Profile
           completeness {assessment.profile_completeness}% · Confidence{" "}
           <Badge variant="secondary">{assessment.confidence}</Badge>
         </p>
@@ -148,6 +162,77 @@ export default async function AssessmentResultPage({
           </p>
         )}
       </div>
+
+      {/* Jawaban / catatan counselor untuk share assessment */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Counselor feedback</CardTitle>
+          <CardDescription>
+            Catatan dan development plan dari counselor setelah kamu share
+            assessment ini.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!hasCounselorFeedback ? (
+            <p className="text-sm text-muted-foreground">
+              Belum ada feedback. Share assessment ke counselor, lalu cek
+              halaman ini lagi.
+            </p>
+          ) : (
+            <>
+              {(notes ?? []).length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Catatan
+                  </p>
+                  {(notes ?? []).map((n) => (
+                    <div
+                      key={n.id}
+                      className="rounded-lg bg-muted/50 p-3 text-sm space-y-1"
+                    >
+                      <p className="text-xs text-muted-foreground">
+                        {n.author_name || "Counselor"} ·{" "}
+                        {new Date(n.created_at).toLocaleString("id-ID")}
+                      </p>
+                      <p className="whitespace-pre-wrap">{n.note}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(planItems ?? []).length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Development plan
+                  </p>
+                  <ul className="space-y-2">
+                    {(planItems ?? []).map((item) => (
+                      <li
+                        key={item.id}
+                        className="rounded-lg border p-3 text-sm space-y-1"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium">{item.competency_name}</p>
+                          <Badge variant="secondary" className="capitalize">
+                            {String(item.status).replace("_", " ")}
+                          </Badge>
+                        </div>
+                        <p className="text-muted-foreground">
+                          Level {item.current_level} → {item.target_level}
+                          {item.due_date
+                            ? ` · due ${new Date(item.due_date).toLocaleDateString("id-ID")}`
+                            : ""}
+                        </p>
+                        <p className="whitespace-pre-wrap">{item.action}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -185,10 +270,20 @@ export default async function AssessmentResultPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" render={<Link href="/dashboard/profile" />} nativeButton={false}>
+          <Button
+            size="sm"
+            variant="outline"
+            render={<Link href="/dashboard/profile" />}
+            nativeButton={false}
+          >
             Update Skills
           </Button>
-          <Button size="sm" variant="outline" render={<Link href="/dashboard/careers/compare" />} nativeButton={false}>
+          <Button
+            size="sm"
+            variant="outline"
+            render={<Link href="/dashboard/careers/compare" />}
+            nativeButton={false}
+          >
             Compare Careers
           </Button>
         </CardContent>
