@@ -32,15 +32,11 @@ export default async function AdminCareerDetailPage({
       )
       .eq("career_id", id)
       .order("weight", { ascending: false }),
-    supabase
-      .from("competencies")
-      .select("id, name, category")
-      .order("name"),
+    supabase.from("competencies").select("id, name, category").order("name"),
   ]);
 
   if (careerError || !career) notFound();
 
-  // normalize join shape (kadang array, kadang object)
   const normalizedReqs = (requirements || []).map((r) => {
     const comp = Array.isArray(r.competencies)
       ? r.competencies[0]
@@ -69,13 +65,18 @@ export default async function AdminCareerDetailPage({
             variant="ghost"
             size="sm"
             render={<Link href="/admin/careers" />}
+            nativeButton={false}
             className="px-0 text-muted-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
             Back to careers
           </Button>
-          <h2 className="text-2xl font-semibold tracking-tight">{career.name}</h2>
-          <p className="text-sm text-muted-foreground font-mono">{career.slug}</p>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            {career.name}
+          </h2>
+          <p className="text-sm text-muted-foreground font-mono">
+            {career.slug}
+          </p>
         </div>
         <Badge variant={career.is_active ? "default" : "secondary"}>
           {career.is_active ? "Active" : "Inactive"}

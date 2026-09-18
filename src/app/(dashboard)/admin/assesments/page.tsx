@@ -36,7 +36,6 @@ export default async function AdminAssessmentsPage() {
   let list: AssessmentRow[] = [];
   let loadError: string | null = null;
 
-  // Query utama: coba join profiles (kalau FK/relasi ada)
   const primary = await supabase
     .from("assessment_results")
     .select(
@@ -58,7 +57,6 @@ export default async function AdminAssessmentsPage() {
   if (!primary.error && primary.data) {
     list = primary.data as AssessmentRow[];
   } else {
-    // Fallback: tanpa profiles, biar page tetap jalan
     const fallback = await supabase
       .from("assessment_results")
       .select(
@@ -80,7 +78,6 @@ export default async function AdminAssessmentsPage() {
       loadError = fallback.error.message;
     } else {
       list = (fallback.data as AssessmentRow[]) ?? [];
-      // simpan error primary sebagai info ringan (opsional)
       if (primary.error) {
         loadError = `Profiles join skipped: ${primary.error.message}`;
       }
@@ -134,9 +131,7 @@ export default async function AdminAssessmentsPage() {
                   </div>
                 </div>
                 <Badge
-                  variant={
-                    levelVariant[a.classification || ""] || "outline"
-                  }
+                  variant={levelVariant[a.classification || ""] || "outline"}
                 >
                   {String(a.classification || "—").replaceAll("_", " ")}
                 </Badge>
