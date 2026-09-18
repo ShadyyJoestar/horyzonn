@@ -32,6 +32,16 @@ export function RuleEditDialog({ rule }: { rule: Rule }) {
   const [value, setValue] = useState(String(rule.value));
   const [description, setDescription] = useState(rule.description ?? "");
 
+  // FIX: tanpa ini, ngetik value baru lalu Cancel meninggalkan draft yang
+  // belum tersimpan di state — dialog dibuka lagi nanti nampilin angka
+  // draft itu, bukan angka asli dari DB. CareerFormDialog dan
+  // CompetencyFormDialog sudah reset saat dibuka; dialog ini belum.
+  function resetFromProp() {
+    setValue(String(rule.value));
+    setDescription(rule.description ?? "");
+    setError(null);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -54,7 +64,13 @@ export function RuleEditDialog({ rule }: { rule: Rule }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) resetFromProp();
+      }}
+    >
       <DialogTrigger render={<Button size="sm" variant="outline" />}>
         <Pencil className="h-3.5 w-3.5 mr-1.5" />
         Edit

@@ -9,6 +9,7 @@ import {
   GraduationCap,
   BarChart3,
   Activity,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
@@ -78,6 +79,19 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
             {profile?.role} · {profile?.primary_focus || "both"}
           </p>
         </div>
+
+        {/* FIX: admin layout punya link "Student view" balik ke /dashboard,
+            tapi dari /dashboard tidak ada jalan balik ke /admin — admin
+            harus ubah URL manual. Ini melengkapi jalur dua arahnya. */}
+        {profile?.role === "admin" && (
+          <Link
+            href="/admin"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+          >
+            <Shield className="h-4 w-4" />
+            Admin panel
+          </Link>
+        )}
 
         <SignOutButton />
       </div>

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Info } from "lucide-react";
 import { RuleEditDialog } from "@/components/admin/rule-edit-dialog";
+import { CLASSIFICATION_THRESHOLDS } from "@/lib/classification/rules";
 
 export default async function AdminRulesPage() {
   const supabase = await createClient();
@@ -11,6 +12,26 @@ export default async function AdminRulesPage() {
     .from("classification_rules")
     .select("*")
     .order("name");
+
+  // FIX: card "Current engine logic" dulu hardcoded 85/70/50 — sudah tidak
+  // benar begitu admin mengubah threshold lewat RuleEditDialog. Sekarang
+  // dibaca dari rules yang sama persis dipakai classification engine
+  // (lihat loadThresholds() di src/lib/actions/assesments.ts), dengan
+  // fallback ke default kalau rule belum di-seed.
+  const ruleValueByName = new Map(
+    (rules || []).map((r) => [r.name, Number(r.value)])
+  );
+  const liveThresholds = {
+    CAREER_READY:
+      ruleValueByName.get("career_ready_threshold") ??
+      CLASSIFICATION_THRESHOLDS.CAREER_READY,
+    READY_WITH_GAPS:
+      ruleValueByName.get("ready_with_gaps_threshold") ??
+      CLASSIFICATION_THRESHOLDS.READY_WITH_GAPS,
+    DEVELOPING:
+      ruleValueByName.get("developing_threshold") ??
+      CLASSIFICATION_THRESHOLDS.DEVELOPING,
+  };
 
   if (error) {
     return (
@@ -87,12 +108,27 @@ export default async function AdminRulesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Current engine logic</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Live dari nilai di atas — bukan teks statis.
+          </p>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <LogicRow range="readiness ≥ 85" label="CAREER_READY" />
-          <LogicRow range="70 ≤ readiness < 85" label="READY_WITH_GAPS" />
-          <LogicRow range="50 ≤ readiness < 70" label="DEVELOPING" />
-          <LogicRow range="readiness < 50" label="EXPLORING" />
+          <LogicRow
+            range={`readiness ≥ ${liveThresholds.CAREER_READY}`}
+            label="CAREER_READY"
+          />
+          <LogicRow
+            range={`${liveThresholds.READY_WITH_GAPS} ≤ readiness < ${liveThresholds.CAREER_READY}`}
+            label="READY_WITH_GAPS"
+          />
+          <LogicRow
+            range={`${liveThresholds.DEVELOPING} ≤ readiness < ${liveThresholds.READY_WITH_GAPS}`}
+            label="DEVELOPING"
+          />
+          <LogicRow
+            range={`readiness < ${liveThresholds.DEVELOPING}`}
+            label="EXPLORING"
+          />
         </CardContent>
       </Card>
     </div>

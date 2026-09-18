@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -5,6 +6,14 @@ import { Users, Shield } from "lucide-react";
 import { RoleSelect } from "@/components/admin/role-select";
 
 export default async function AdminUsersPage() {
+  // Butuh tahu siapa yang sedang login (pakai client biasa, bukan
+  // service-role) supaya kita bisa disable role-select di baris admin
+  // itu sendiri — service-role client tidak punya sesi user.
+  const supabaseSession = await createClient();
+  const {
+    data: { user: currentUser },
+  } = await supabaseSession.auth.getUser();
+
   const supabase = createAdminClient();
 
   const { data: users, error } = await supabase
@@ -63,7 +72,11 @@ export default async function AdminUsersPage() {
                 {user.role === "admin" && (
                   <Shield className="h-3.5 w-3.5 text-muted-foreground" />
                 )}
-                <RoleSelect userId={user.id} currentRole={user.role} />
+                <RoleSelect
+                  userId={user.id}
+                  currentRole={user.role}
+                  isSelf={user.id === currentUser?.id}
+                />
               </div>
             </CardHeader>
             <CardContent className="pl-12">

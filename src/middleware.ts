@@ -3,9 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { resolveLandingPath } from "@/lib/auth/landing";
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,9 +17,7 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
+          supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -36,14 +32,13 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  // Protected routes
   const isProtected =
     path.startsWith("/dashboard") ||
+    path.startsWith("/counselor") ||   // ← TAMBAHAN counselor
     path.startsWith("/profile") ||
     path.startsWith("/assessment") ||
     path.startsWith("/admin");
 
-  // Auth pages
   const isAuthPage = path === "/login" || path === "/register";
 
   if (isProtected && !user) {
@@ -53,8 +48,6 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isAuthPage && user) {
-    // FIX: dulu selalu ke "/dashboard". Admin yang membuka /login jadi
-    // terlempar ke dashboard member. Sekarang ikut role.
     const url = request.nextUrl.clone();
     url.pathname = await resolveLandingPath(supabase, user.id);
     url.search = "";
