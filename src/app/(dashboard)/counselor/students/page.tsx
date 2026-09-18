@@ -20,13 +20,15 @@ export default async function CounselorStudentsPage() {
 
   const { data: shares } = await supabase
     .from("shared_assessments")
-    .select("user_id, created_at")
+    .select("user_id, created_at, expires_at")
     .eq("counselor_id", user.id)
     .is("revoked_at", null);
 
   const now = new Date();
-  const active = (shares ?? []).filter((s) => true); // expiry di-check via query di bawah
-  const ids = [...new Set((shares ?? []).map((s) => s.user_id))];
+  const active = (shares ?? []).filter(
+    (s) => !s.expires_at || new Date(s.expires_at) > now
+  );
+  const ids = [...new Set(active.map((s) => s.user_id))];
 
   if (ids.length === 0) {
     return (
@@ -51,7 +53,7 @@ export default async function CounselorStudentsPage() {
 
   const rows = (profiles ?? []).map((p) => ({
     ...p,
-    shareCount: (shares ?? []).filter((s) => s.user_id === p.id).length,
+    shareCount: active.filter((s) => s.user_id === p.id).length,
   }));
 
   return (
