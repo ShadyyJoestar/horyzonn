@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,13 +64,31 @@ export default async function AdminCareersPage() {
                 {career.is_active ? "Active" : "Inactive"}
               </Badge>
             </CardHeader>
+
             <CardContent className="pl-[3.75rem] space-y-3">
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {career.description || "No description yet."}
               </p>
+
+              <p className="text-xs text-muted-foreground">
+                Created{" "}
+                {career.created_at
+                  ? new Date(career.created_at).toLocaleDateString("id-ID")
+                  : "—"}
+              </p>
+
               <div className="flex flex-wrap gap-2">
                 <CareerFormDialog mode="edit" career={career} />
-                <ToggleCareerActive id={career.id} isActive={!!career.is_active} />
+                <ToggleCareerActive
+                  id={career.id}
+                  isActive={!!career.is_active}
+                />
+                <Link
+                  href={`/admin/careers/${career.id}`}
+                  className="inline-flex h-7 items-center rounded-lg border border-border px-2.5 text-[0.8rem] font-medium hover:bg-muted transition-colors"
+                >
+                  Requirements
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -97,7 +116,7 @@ function Header() {
     <div>
       <h2 className="text-2xl font-semibold tracking-tight">Careers</h2>
       <p className="text-muted-foreground mt-1">
-        Manage career library, visibility, and metadata.
+        Manage career library, visibility, and competency requirements.
       </p>
     </div>
   );

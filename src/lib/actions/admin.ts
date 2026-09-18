@@ -260,3 +260,111 @@ export async function updateUserRole(formData: {
   revalidateAdmin();
   return { success: true };
 }
+// ─── CAREER COMPETENCY REQUIREMENTS ──────────────────────
+
+export async function addCareerCompetency(formData: {
+  careerId: string;
+  competencyId: string;
+  requiredLevel: number;
+  weight: number;
+  isCore?: boolean;
+}): Promise<ActionResult> {
+  const { error, ctx } = await requireAdmin();
+  if (error || !ctx) return { error: error ?? "Unauthorized" };
+
+  if (!formData.careerId || !formData.competencyId) {
+    return { error: "careerId dan competencyId wajib" };
+  }
+
+  const requiredLevel = Number(formData.requiredLevel);
+  const weight = Number(formData.weight);
+
+  if (!Number.isFinite(requiredLevel) || requiredLevel < 1 || requiredLevel > 5) {
+    return { error: "required_level harus 1–5" };
+  }
+  if (!Number.isFinite(weight) || weight <= 0) {
+    return { error: "weight harus angka > 0" };
+  }
+
+  const { error: insertError } = await ctx.admin.from("career_competencies").insert({
+    career_id: formData.careerId,
+    competency_id: formData.competencyId,
+    required_level: requiredLevel,
+    weight,
+    is_core: formData.isCore ?? false,
+  });
+
+  if (insertError) {
+    // unique violation = sudah ada
+    if (insertError.code === "23505") {
+      return { error: "Competency ini sudah terhubung ke career tersebut" };
+    }
+    return { error: insertError.message };
+  }
+
+  revalidateAdmin();
+  revalidatePath(`/admin/careers/${formData.careerId}`);
+  revalidatePath(`/dashboard/careers`);
+  return { success: true };
+}
+
+export async function updateCareerCompetency(formData: {
+  id: string;
+  careerId: string;
+  requiredLevel: number;
+  weight: number;
+  isCore?: boolean;
+}): Promise<ActionResult> {
+  const { error, ctx } = await requireAdmin();
+  if (error || !ctx) return { error: error ?? "Unauthorized" };
+
+  if (!formData.id) return { error: "Missing requirement id" };
+
+  const requiredLevel = Number(formData.requiredLevel);
+  const weight = Number(formData.weight);
+
+  if (!Number.isFinite(requiredLevel) || requiredLevel < 1 || requiredLevel > 5) {
+    return { error: "required_level harus 1–5" };
+  }
+  if (!Number.isFinite(weight) || weight <= 0) {
+    return { error: "weight harus angka > 0" };
+  }
+
+  const { error: updateError } = await ctx.admin
+    .from("career_competencies")
+    .update({
+      required_level: requiredLevel,
+      weight,
+      is_core: formData.isCore ?? false,
+    })
+    .eq("id", formData.id);
+
+  if (updateError) return { error: updateError.message };
+
+  revalidateAdmin();
+  revalidatePath(`/admin/careers/${formData.careerId}`);
+  revalidatePath(`/dashboard/careers`);
+  return { success: true };
+}
+
+export async function removeCareerCompetency(formData: {
+  id: string;
+  careerId: string;
+}): Promise<ActionResult> {
+  const { error, ctx } = await requireAdmin();
+  if (error || !ctx) return { error: error ?? "Unauthorized" };
+
+  if (!formData.id) return { error: "Missing requirement id" };
+
+  const { error: deleteError } = await ctx.admin
+    .from("career_competencies")
+    .delete()
+    .eq("id", formData.id);
+
+  if (deleteError) return { error: deleteError.message };
+
+  revalidateAdmin();
+  revalidatePath(`/admin/careers/${formData.careerId}`);
+  revalidatePath(`/dashboard/careers`);
+  return { success: true };
+}
