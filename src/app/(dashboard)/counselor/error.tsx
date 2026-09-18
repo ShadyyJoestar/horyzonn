@@ -1,15 +1,7 @@
-// src/app/(dashboard)/counselor/error.tsx
-"use client";
+// src/app/(dashboard)/counselor/loading.tsx
+import { Skeleton } from "@/components/ui/skeleton";
 
-import { Button } from "@/components/ui/button";
-
-export default function CounselorError({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+export default function CounselorLoading() {
   return (
     <div className="space-y-4 max-w-lg">
       <h2 className="text-xl font-semibold">Something went wrong</h2>
