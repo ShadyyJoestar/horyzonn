@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
 
@@ -233,10 +234,12 @@ export async function shareAssessmentWithCounselor(
     };
   }
 
-  // Cari counselor
-  const { data: counselor } = await supabase
+  // HARUS admin client — student tidak boleh SELECT profiles counselor (RLS)
+  const admin = createAdminClient();
+
+  const { data: counselor } = await admin
     .from("profiles")
-    .select("id, role")
+    .select("id, role, email")
     .ilike("email", email)
     .maybeSingle();
 
@@ -314,6 +317,10 @@ export async function shareAssessmentWithCounselor(
   );
 
   revalidatePath("/dashboard/share");
+
+  revalidatePath("/counselor/shared");
+
+  revalidatePath("/counselor/students");
 
   return {
     token,
