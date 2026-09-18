@@ -30,6 +30,11 @@ const counselorNav: CounselorNavItem[] = [
     label: "Shared with me",
     icon: "Share2",
   },
+  {
+    href: "/counselor/questions",
+    label: "Questions",
+    icon: "MessageCircle",
+  },
 ];
 
 export default async function CounselorLayout({

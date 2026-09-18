@@ -20,7 +20,9 @@ export type DashboardIconName =
   | "Users"
   | "Settings"
   | "FileText"
-  | "ScrollText";
+  | "ScrollText"
+  | "MessageCircle"
+  | "Sparkles";
 
 export type DashboardNavItem = {
   href: string;
@@ -69,7 +71,18 @@ export const studentNav: DashboardNavItem[] = [
     label: "Share assessment",
     icon: "Share2",
   },
+  {
+    href: "/dashboard/ask-counselor",
+    label: "Ask counselor",
+    icon: "MessageCircle",
+  },
+  {
+    href: "/dashboard/ask-ai",
+    label: "Ask AI",
+    icon: "Sparkles",
+  },
 ];
+
 
 export const adminNav: DashboardNavItem[] = [
   {

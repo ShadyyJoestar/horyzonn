@@ -61,6 +61,7 @@ export async function createShareLink(
     .from("shared_assessments")
     .insert({
       user_id: user.id,
+      shared_by: user.id,
       assessment_id: assessmentId,
       token,
       expires_at: expires.toISOString(),
@@ -292,6 +293,7 @@ export async function shareAssessmentWithCounselor(
     .from("shared_assessments")
     .insert({
       user_id: user.id,
+      shared_by: user.id,
       assessment_id: input.assessmentId,
       token,
       counselor_id: counselor.id,

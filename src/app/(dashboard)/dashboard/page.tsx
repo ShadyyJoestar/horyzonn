@@ -84,6 +84,36 @@ export default async function DashboardPage() {
 
   const latestAssessment = assessments?.[0];
 
+  // Recent counselor replies for this student
+  const { data: myQuestions } = await supabase
+    .from("counselor_questions")
+    .select("id, subject, status")
+    .eq("student_id", user.id)
+    .order("updated_at", { ascending: false })
+    .limit(10);
+
+  const qIds = (myQuestions ?? []).map((q) => q.id);
+  let recentReplies: {
+    id: string;
+    reply: string;
+    created_at: string;
+    question_id: string;
+  }[] = [];
+
+  if (qIds.length > 0) {
+    const { data: replyRows } = await supabase
+      .from("counselor_replies")
+      .select("id, reply, created_at, question_id")
+      .in("question_id", qIds)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    recentReplies = replyRows ?? [];
+  }
+
+  const questionSubject = new Map(
+    (myQuestions ?? []).map((q) => [q.id, q.subject || "Question"])
+  );
+
   return (
     <div className="space-y-8 max-w-5xl">
       <div>
@@ -213,6 +243,52 @@ export default async function DashboardPage() {
                 </div>
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Counselor replies */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle className="text-base">Counselor replies</CardTitle>
+            <CardDescription>
+              Jawaban terbaru dari counselor atas pertanyaanmu
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href="/dashboard/ask-counselor" />}
+            nativeButton={false}
+          >
+            Ask counselor <ArrowRight className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {recentReplies.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Belum ada balasan. Kirim pertanyaan lewat{" "}
+              <Link href="/dashboard/ask-counselor" className="underline">
+                Ask counselor
+              </Link>
+              .
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {recentReplies.map((r) => (
+                <li
+                  key={r.id}
+                  className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1"
+                >
+                  <p className="text-xs text-muted-foreground">
+                    {questionSubject.get(r.question_id) || "Question"} ·{" "}
+                    {new Date(r.created_at).toLocaleString("id-ID")}
+                  </p>
+                  <p className="line-clamp-3 whitespace-pre-wrap">{r.reply}</p>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>

@@ -9,9 +9,11 @@ import {
   GitCompare,
   GraduationCap,
   LayoutDashboard,
+  MessageCircle,
   ScrollText,
   Settings,
   Share2,
+  Sparkles,
   User,
   Users,
 } from "lucide-react";
@@ -33,6 +35,8 @@ export const dashboardIconMap: Record<DashboardIconName, LucideIcon> = {
   Settings,
   FileText,
   ScrollText,
+  MessageCircle,
+  Sparkles,
 };
 
 export function getDashboardIcon(name: DashboardIconName): LucideIcon {
