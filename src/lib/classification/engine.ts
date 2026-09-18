@@ -8,12 +8,17 @@ import {
   CompetencyLevel,
   UserCompetency,
 } from "./types";
-import { getClassificationLevel, getGapStatus } from "./rules";
+import {
+  getClassificationLevel,
+  getGapStatus,
+  Thresholds,
+} from "./rules";
 
 /**
  * Hitung readiness score berdasarkan weighted competency matching.
- * Score = sum( (currentLevel / requiredLevel) * weight ) * 100
- * Tapi dibatasi max 1.0 per competency (tidak over-score terlalu jauh)
+ * Score = sum( (currentLevel / requiredLevel) * weight ) / totalWeight * 100
+ * Rasio per competency di-cap 1.2 biar yang exceeds dapat sedikit bonus,
+ * tapi skor akhir tetap di-cap 100.
  */
 function calculateReadinessScore(
   userSkills: UserCompetency[],
@@ -27,8 +32,6 @@ function calculateReadinessScore(
   for (const req of requirements) {
     const userSkill = userSkills.find((s) => s.competencyId === req.competencyId);
     const currentLevel = userSkill?.level ?? 1; // default 1 kalau belum diisi
-
-    // Rasio kemampuan (max 1.2 biar yang exceeds tetap dikasih sedikit bonus)
     const ratio = Math.min(currentLevel / req.requiredLevel, 1.2);
 
     totalWeightedScore += ratio * req.weight;
@@ -83,16 +86,17 @@ function generateExplanation(
   let summary = "";
   switch (classification) {
     case "CAREER_READY":
-      summary = `Your profile shows strong readiness for ${careerName} (score ${score}). Most core competencies are already met.`;
+      summary = `Based on the competency requirements and the information you provided, your current profile is classified as Career Ready for ${careerName} (score ${score}). This is decision support — not a guarantee of outcomes.`;
       break;
     case "READY_WITH_GAPS":
-      summary = `Your profile is reasonably strong for ${careerName} (score ${score}), but a few important areas still need development.`;
+      summary = `Your profile is classified as Ready With Gaps for ${careerName} (score ${score}). Most core competencies are met, but a few weighted areas still need development.`;
       break;
     case "DEVELOPING":
-      summary = `You are in a developing stage for ${careerName} (score ${score}). Some foundations exist, but several gaps still need to be closed.`;
+      summary = `You are in a Developing stage for ${careerName} (score ${score}). Some foundations exist, but several gaps still need to be closed.`;
       break;
+    case "EXPLORING":
     default:
-      summary = `Your profile is still in an exploring stage for ${careerName} (score ${score}). Evidence against the target competencies is limited.`;
+      summary = `Your profile is in an Exploring stage for ${careerName} (score ${score}). Evidence against the target competencies is limited — add more data to get a sharper classification.`;
   }
 
   return {
@@ -125,9 +129,11 @@ function generateActionPlan(gaps: CompetencyGap[]): ClassificationResult["action
 
 function calculateProfileCompleteness(profile: UserProfile): number {
   let score = 0;
-  const academicFilled = Object.values(profile.academic).filter((v) => v > 0).length;
-  score += Math.min(academicFilled / 4, 1) * 25;
 
+  const academicFilled = Object.values(profile.academic).filter(
+    (v) => v !== undefined && v > 0
+  ).length;
+  score += Math.min(academicFilled / 4, 1) * 25;
   score += Math.min(profile.skills.length / 8, 1) * 30;
   score += Math.min(profile.experiences.length / 3, 1) * 25;
   score += Math.min(profile.interests.length / 3, 1) * 20;
@@ -137,18 +143,21 @@ function calculateProfileCompleteness(profile: UserProfile): number {
 
 /**
  * Main function — Classification Engine
+ * thresholds opsional: kalau dikasih, pakai nilai dari DB (classification_rules).
+ * Kalau tidak, fallback ke CLASSIFICATION_THRESHOLDS di rules.ts.
  */
 export function runCareerClassification(
   userProfile: UserProfile,
   career: CareerProfile,
-  competencyNames: Record<string, string> = {}
+  competencyNames: Record<string, string> = {},
+  thresholds?: Thresholds
 ): ClassificationResult {
   const readinessScore = calculateReadinessScore(
     userProfile.skills,
     career.competencyRequirements
   );
 
-  const classification = getClassificationLevel(readinessScore);
+  const classification = getClassificationLevel(readinessScore, thresholds);
   const gaps = buildGaps(userProfile.skills, career, competencyNames);
 
   const strengths = gaps
@@ -161,15 +170,6 @@ export function runCareerClassification(
   if (profileCompleteness >= 80) confidence = "HIGH";
   else if (profileCompleteness >= 50) confidence = "MEDIUM";
 
-  const explanation = generateExplanation(
-    classification,
-    readinessScore,
-    gaps,
-    career.name
-  );
-
-  const actionPlan = generateActionPlan(gaps);
-
   return {
     readinessScore,
     classification,
@@ -177,7 +177,12 @@ export function runCareerClassification(
     profileCompleteness,
     gaps,
     strengths,
-    explanation,
-    actionPlan,
+    explanation: generateExplanation(
+      classification,
+      readinessScore,
+      gaps,
+      career.name
+    ),
+    actionPlan: generateActionPlan(gaps),
   };
 }

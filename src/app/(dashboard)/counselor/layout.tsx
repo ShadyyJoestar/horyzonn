@@ -1,14 +1,30 @@
-// src/app/(dashboard)/counselor/layout.tsx
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { NavLink } from "@/components/dashboard/nav-link";
+import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import {
   LayoutDashboard,
   Users,
-  FileText,
-  ScrollText,
+  Inbox,
+  LayoutGrid,
+  ClipboardList,
+  BarChart3,
 } from "lucide-react";
+
+/**
+ * Counselor / Mentor module – clear destinations:
+ *  1. Overview          → ringkasan & recent activity
+ *  2. Students          → students who shared with this counselor
+ *  3. Shared with me    → inbox of shared assessments
+ *  4. Assessments       → list assessments
+ */
+const counselorNav = [
+  { href: "/counselor", label: "Overview", icon: LayoutDashboard },
+  { href: "/counselor/students", label: "Students", icon: Users },
+  { href: "/counselor/shared", label: "Shared with me", icon: Inbox },
+  { href: "/counselor/assessments", label: "Assessments", icon: ClipboardList },
+];
 
 export default async function CounselorLayout({
   children,
@@ -32,13 +48,12 @@ export default async function CounselorLayout({
     redirect("/dashboard");
   }
 
-  const nav = [
-    { href: "/counselor", label: "Overview", icon: LayoutDashboard },
-    { href: "/counselor/students", label: "Students", icon: Users },
-  ];
+  const displayName =
+    profile?.full_name || profile?.email || user.email || "Counselor";
 
   return (
     <div className="min-h-screen flex bg-background">
+      {/* Desktop sidebar */}
       <aside className="w-64 border-r border-border bg-muted/30 hidden md:flex flex-col">
         <div className="h-16 flex items-center gap-2 px-6 border-b border-border">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background font-bold text-sm">
@@ -50,37 +65,57 @@ export default async function CounselorLayout({
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
-          {nav.map((item) => (
-            <Link
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {counselorNav.map((item) => (
+            <NavLink
               key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
+              {...item}
+              exact={item.href === "/counselor"}
+            />
           ))}
         </nav>
 
         <div className="p-4 border-t border-border space-y-1">
+          {role === "admin" && (
+            <NavLink href="/admin" label="Admin panel" icon={LayoutGrid} />
+          )}
+          <NavLink
+            href="/dashboard"
+            label="Student view"
+            icon={BarChart3}
+          />
           <SignOutButton />
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-border flex items-center justify-between px-6">
-          <div>
-            <h1 className="font-semibold">Counselor Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              {profile?.full_name || profile?.email || user.email}
-            </p>
+        <header className="h-14 md:h-16 border-b border-border flex items-center justify-between px-4 sm:px-6 gap-2 sticky top-0 z-40 bg-background">
+          <div className="flex items-center gap-3 min-w-0">
+            <MobileNav
+              items={counselorNav}
+              title="Horyzon Counselor"
+              subtitle={role}
+              user={{
+                name: displayName,
+                email: profile?.email ?? user.email,
+                role,
+              }}
+            />
+            <div className="min-w-0 hidden sm:block">
+              <h1 className="font-semibold truncate text-sm md:text-base">
+                Counselor Dashboard
+              </h1>
+              <p className="text-xs md:text-sm text-muted-foreground truncate">
+                {displayName}
+              </p>
+            </div>
+            <span className="sm:hidden font-semibold truncate">Counselor</span>
           </div>
-          <div className="flex items-center gap-2">
-            <SignOutButton variant="icon" />
-          </div>
+          {/* Always-visible sign-out on mobile & desktop header */}
+          <SignOutButton variant="icon" />
         </header>
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
+
+        <main className="flex-1 p-4 sm:p-6 overflow-auto">{children}</main>
       </div>
     </div>
   );
