@@ -2,20 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  User,
-  Briefcase,
-  GraduationCap,
-  BarChart3,
-  Activity,
-  Shield,
-  GitCompare,
-  Share2,
-} from "lucide-react";
+import { Shield } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
-import type { LucideIcon } from "lucide-react";
+import { studentNav } from "./nav-config";
+import { getDashboardIcon } from "./nav-icons";
 
 export interface Profile {
   id: string;
@@ -25,31 +17,13 @@ export interface Profile {
   primary_focus: string | null;
 }
 
-/** Shared nav shape used by Sidebar + MobileNav */
-export type StudentNavItem = {
-  name: string;
-  href: string;
-  icon: LucideIcon;
-  /** alias for MobileNav which expects `label` */
-  label: string;
-};
+export { studentNav } from "./nav-config";
 
-/**
- * Exported so layout.tsx and MobileNav can reuse the same list.
- * FIX: previously declared as local const → TS2459 when imported.
- */
-export const studentNav: StudentNavItem[] = [
-  { name: "Overview", label: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Profile", label: "Profile", href: "/dashboard/profile", icon: User },
-  { name: "Careers", label: "Careers", href: "/dashboard/careers", icon: Briefcase },
-  { name: "Compare", label: "Compare careers", href: "/dashboard/careers/compare", icon: GitCompare },
-  { name: "Academic", label: "Academic", href: "/dashboard/academic", icon: GraduationCap },
-  { name: "Assessment", label: "Assessment", href: "/dashboard/assessment", icon: BarChart3 },
-  { name: "Progress", label: "Progress", href: "/dashboard/progress", icon: Activity },
-  { name: "Share", label: "Share assessment", href: "/dashboard/share", icon: Share2 },
-];
-
-export function Sidebar({ profile }: { profile: Profile | null }) {
+export function Sidebar({
+  profile,
+}: {
+  profile: Profile | null;
+}) {
   const pathname = usePathname();
 
   return (
@@ -58,14 +32,20 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background font-bold text-sm">
           H
         </div>
-        <span className="text-lg font-semibold tracking-tight">Horyzon</span>
+
+        <span className="text-lg font-semibold tracking-tight">
+          Horyzon
+        </span>
       </div>
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {studentNav.map((item) => {
           const isActive =
             pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            (item.href !== "/dashboard" &&
+              pathname.startsWith(item.href));
+
+          const Icon = getDashboardIcon(item.icon);
 
           return (
             <Link
@@ -78,8 +58,9 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {item.name}
+              <Icon className="h-4 w-4 shrink-0" />
+
+              {item.label}
             </Link>
           );
         })}
@@ -90,9 +71,11 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
           <p className="text-sm font-medium truncate">
             {profile?.full_name || "User"}
           </p>
+
           <p className="text-xs text-muted-foreground truncate">
             {profile?.email}
           </p>
+
           <p className="text-xs text-muted-foreground mt-0.5 capitalize">
             {profile?.role} · {profile?.primary_focus || "both"}
           </p>
@@ -104,16 +87,19 @@ export function Sidebar({ profile }: { profile: Profile | null }) {
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
           >
             <Shield className="h-4 w-4" />
+
             Admin panel
           </Link>
         )}
 
-        {(profile?.role === "counselor" || profile?.role === "mentor") && (
+        {(profile?.role === "counselor" ||
+          profile?.role === "mentor") && (
           <Link
             href="/counselor"
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
           >
             <Shield className="h-4 w-4" />
+
             Counselor panel
           </Link>
         )}

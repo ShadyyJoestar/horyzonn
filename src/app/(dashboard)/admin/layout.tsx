@@ -1,29 +1,11 @@
 import { redirect } from "next/navigation";
+
 import { createClient } from "@/lib/supabase/server";
+
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { NavLink } from "@/components/dashboard/nav-link";
-import {
-  LayoutDashboard,
-  Briefcase,
-  Brain,
-  Users,
-  Settings,
-  BarChart3,
-  FileText,
-  ScrollText,
-} from "lucide-react";
-
-const adminNav = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/careers", label: "Careers", icon: Briefcase },
-  { href: "/admin/competencies", label: "Competencies", icon: Brain },
-  { href: "/admin/users", label: "Users", icon: Users },
-  { href: "/admin/rules", label: "Rules", icon: Settings },
-  { href: "/admin/assessments", label: "Assessments", icon: FileText },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/admin/audit", label: "Audit log", icon: ScrollText },
-];
+import { adminNav } from "@/components/dashboard/nav-config";
 
 export default async function AdminLayout({
   children,
@@ -31,11 +13,14 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (!user) {
+    redirect("/login");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -50,7 +35,10 @@ export default async function AdminLayout({
   }
 
   const displayName =
-    profile?.full_name || profile?.email || user.email || "Admin";
+    profile?.full_name ||
+    profile?.email ||
+    user.email ||
+    "Admin";
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -59,9 +47,15 @@ export default async function AdminLayout({
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background font-bold text-sm">
             H
           </div>
+
           <div>
-            <p className="font-semibold text-sm">Horyzon</p>
-            <p className="text-xs text-muted-foreground capitalize">{role}</p>
+            <p className="font-semibold text-sm">
+              Horyzon
+            </p>
+
+            <p className="text-xs text-muted-foreground capitalize">
+              {role}
+            </p>
           </div>
         </div>
 
@@ -79,8 +73,9 @@ export default async function AdminLayout({
           <NavLink
             href="/dashboard"
             label="Student view"
-            icon={LayoutDashboard}
+            icon="LayoutDashboard"
           />
+
           <SignOutButton />
         </div>
       </aside>
@@ -98,20 +93,28 @@ export default async function AdminLayout({
                 role,
               }}
             />
+
             <div className="min-w-0 hidden sm:block">
               <h1 className="font-semibold truncate text-sm md:text-base">
                 Admin Dashboard
               </h1>
+
               <p className="text-xs md:text-sm text-muted-foreground truncate">
                 {displayName}
               </p>
             </div>
-            <span className="sm:hidden font-semibold truncate">Admin</span>
+
+            <span className="sm:hidden font-semibold truncate">
+              Admin
+            </span>
           </div>
+
           <SignOutButton variant="icon" />
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 overflow-auto">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 overflow-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -2,23 +2,33 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
+
 import { cn } from "@/lib/utils";
+import { getDashboardIcon } from "./nav-icons";
+import type { DashboardIconName } from "./nav-config";
 
 type Props = {
   href: string;
   label: string;
-  icon: LucideIcon;
-  /** default: juga aktif untuk sub-path */
+  icon: DashboardIconName;
   exact?: boolean;
   onClick?: () => void;
 };
 
-export function NavLink({ href, label, icon: Icon, exact = false, onClick }: Props) {
+export function NavLink({
+  href,
+  label,
+  icon,
+  exact = false,
+  onClick,
+}: Props) {
   const pathname = usePathname();
+
   const active = exact
     ? pathname === href
     : pathname === href || pathname.startsWith(href + "/");
+
+  const Icon = getDashboardIcon(icon);
 
   return (
     <Link
@@ -32,7 +42,8 @@ export function NavLink({ href, label, icon: Icon, exact = false, onClick }: Pro
           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-4 w-4 shrink-0" />
+
       {label}
     </Link>
   );
