@@ -1,12 +1,7 @@
-// src/app/(dashboard)/counselor/assessments/[id]/page.tsx
-import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+// src/app/(dashboard)/dashboard/assessment/[id]/page.tsx
 import { createClient } from "@/lib/supabase/server";
-import {
-  counselorHasAccess,
-  counselorHasStudentAccess,
-  requireCounselor,
-} from "@/lib/counselor/guards";
+import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -14,14 +9,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ClassificationBadge } from "@/components/assessment/classification-badge";
 import { ReadinessScore } from "@/components/assessment/readiness-score";
 import { GapTable } from "@/components/assessment/gap-table";
 import { ExplanationCard } from "@/components/assessment/explanation-card";
 import { ActionPlanList } from "@/components/assessment/action-plan-list";
-import { CounselorNotes } from "@/components/counselor/counselor-notes";
-import { DevelopmentPlanManager } from "@/components/counselor/development-plan-manager";
+import { RunAssessmentButton } from "@/components/assessment/run-assessment-button";
+import { ShareButton } from "@/components/assessment/share-button";
+import { FeedbackForm } from "@/components/assessment/feedback-form";
 import { ArrowLeft } from "lucide-react";
 
 interface GapRow {
@@ -50,62 +47,41 @@ interface ExplanationJson {
   actionPlan?: ActionItem[];
 }
 
-export default async function CounselorAssessmentPage({
+export default async function AssessmentResultPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { error, ctx } = await requireCounselor();
-  if (error || !ctx) redirect("/login");
-  const { supabase, user } = ctx;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  const allowed = await counselorHasAccess(supabase, id, user.id);
-  if (!allowed) notFound();
+  const [{ data: assessment }, { data: share }, { data: existingFeedback }] =
+    await Promise.all([
+      supabase
+        .from("assessment_results")
+        .select("*, careers(id, name, slug)")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("shared_assessments")
+        .select("token")
+        .eq("assessment_id", id)
+        .is("revoked_at", null)
+        .maybeSingle(),
+      supabase
+        .from("feedbacks")
+        .select("id")
+        .eq("assessment_id", id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ]);
 
-  const { data: assessment } = await supabase
-    .from("assessment_results")
-    .select("*, careers(id, name, slug)")
-    .eq("id", id)
-    .single();
   if (!assessment) notFound();
-
-  const studentOk = await counselorHasStudentAccess(
-    supabase,
-    assessment.user_id,
-    user.id
-  );
-  if (!studentOk) notFound();
-
-  const [
-    { data: studentProfile },
-    { data: shares },
-    { data: notes },
-    { data: planItems },
-  ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", assessment.user_id)
-      .maybeSingle(),
-    supabase
-      .from("shared_assessments")
-      .select("token, message, created_at")
-      .eq("assessment_id", id)
-      .eq("counselor_id", user.id)
-      .is("revoked_at", null)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("counselor_notes")
-      .select("id, author_id, author_name, note, created_at")
-      .eq("assessment_id", id)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("development_plan_items")
-      .select("*")
-      .eq("assessment_id", id)
-      .order("sort_order", { ascending: true }),
-  ]);
 
   const career = Array.isArray(assessment.careers)
     ? assessment.careers[0]
@@ -117,16 +93,31 @@ export default async function CounselorAssessmentPage({
     ? explanation.actionPlan
     : [];
 
-  const share = shares?.[0];
-
   return (
     <div className="space-y-6 max-w-4xl">
-      <Link
-        href="/counselor"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to overview
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          render={<Link href="/dashboard/assessment" />}
+          nativeButton={false}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          History
+        </Button>
+        <div className="flex items-center gap-2">
+          <ShareButton
+            assessmentId={assessment.id}
+            existingToken={share?.token ?? null}
+          />
+          {(career as { id?: string } | null)?.id && (
+            <RunAssessmentButton
+              careerId={(career as { id: string }).id}
+              label="Reassess"
+            />
+          )}
+        </div>
+      </div>
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-3">
@@ -136,20 +127,19 @@ export default async function CounselorAssessmentPage({
           <ClassificationBadge classification={assessment.classification} />
         </div>
         <p className="text-sm text-muted-foreground">
-          {studentProfile?.full_name || studentProfile?.email || "Student"} ·{" "}
           {new Date(assessment.created_at).toLocaleString("en-US")} · Profile
           completeness {assessment.profile_completeness}% · Confidence{" "}
           <Badge variant="secondary">{assessment.confidence}</Badge>
         </p>
-        {share?.message && (
-          <p className="text-sm italic text-muted-foreground">
-            “{share.message}”
+        {assessment.profile_completeness < 50 && (
+          <p className="text-sm text-amber-600">
+            Limited data — complete your{" "}
+            <Link href="/dashboard/profile" className="underline font-medium">
+              profile
+            </Link>{" "}
+            for higher confidence. Classification is not a prediction of success.
           </p>
         )}
-        <p className="text-xs text-muted-foreground italic">
-          Classification is decision support based on the data provided — not a
-          prediction of career success.
-        </p>
       </div>
 
       <Card>
@@ -167,36 +157,37 @@ export default async function CounselorAssessmentPage({
       <ExplanationCard explanation={explanation} />
 
       <div className="space-y-3">
-        <h3 className="text-base font-semibold">Competency Gap Analysis</h3>
-        <GapTable gaps={gaps} />
+        <div>
+          <h3 className="text-base font-semibold">Competency Gap Analysis</h3>
+          <p className="text-sm text-muted-foreground">
+            Current level vs required level for this career.
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <GapTable gaps={gaps} />
+        </div>
       </div>
 
       <ActionPlanList items={actionPlan} />
 
-      <DevelopmentPlanManager
-        assessmentId={assessment.id}
-        items={(planItems ?? []).map((i) => ({
-          id: i.id,
-          competency_name: i.competency_name,
-          current_level: i.current_level,
-          target_level: i.target_level,
-          action: i.action,
-          status: i.status,
-          due_date: i.due_date,
-        }))}
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">What next?</CardTitle>
+          <CardDescription>
+            Improve a skill in your profile, then reassess to see progress.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" render={<Link href="/dashboard/profile" />} nativeButton={false}>
+            Update Skills
+          </Button>
+          <Button size="sm" variant="outline" render={<Link href="/dashboard/careers/compare" />} nativeButton={false}>
+            Compare Careers
+          </Button>
+        </CardContent>
+      </Card>
 
-      <CounselorNotes
-        assessmentId={assessment.id}
-        currentUserId={user.id}
-        notes={(notes ?? []).map((n) => ({
-          id: n.id,
-          author_id: n.author_id,
-          author_name: n.author_name,
-          note: n.note,
-          created_at: n.created_at,
-        }))}
-      />
+      {!existingFeedback && <FeedbackForm assessmentId={assessment.id} />}
     </div>
   );
 }
