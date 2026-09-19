@@ -36,7 +36,7 @@ export function Sidebar({
         </div>
 
         <span className="text-lg font-semibold tracking-tight">
-          Horyzon
+          Horizon
         </span>
       </div>
 
